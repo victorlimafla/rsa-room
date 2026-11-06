@@ -1,0 +1,2844 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>RSA Room</title><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=STIX+Two+Text:ital,wght@1,400;1,600&display=swap">
+<style>
+/* Layout: sala de aula projetada — barra com PIN no topo; colunas "derivação das chaves" | "projeção ao vivo".
+   Cor codifica a chave: verde-petróleo = pública (e, n), framboesa = privada (d), âmbar = texto claro (m). */
+:root {
+  --paper: #EDF1F5;
+  --surface: #FFFFFF;
+  --sunk: #E2E8EF;
+  --ink: #0F1A2C;
+  --muted: #55617A;
+  --line: #CDD5E0;
+  --pub: #06727C;
+  --pub-soft: #D4ECEE;
+  --priv: #AE1F58;
+  --priv-soft: #F6DAE5;
+  --plain: #8F5E00;
+  --plain-soft: #F7E9C6;
+  --ok: #1D7337;
+  --warn: #9A5300;
+  --on-color: #FFFFFF;
+  --hacker: #2B3548;
+  --phi: #5A3FD1;
+  --scroll: rgba(15, 26, 44, 0.22);
+  --scroll-hover: rgba(15, 26, 44, 0.4);
+  --phi-soft: #E7E1FB;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-math: "STIX Two Text", "Cambria Math", "Cambria", "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0C111C; --surface: #141B2A; --sunk: #1C2436; --ink: #E6EAF2; --muted: #9AA4B8; --line: #283246;
+    --pub: #45C2CC; --pub-soft: #10343A; --priv: #F2689F; --priv-soft: #3C1528; --plain: #E9B43F; --plain-soft: #352910;
+    --ok: #5CCB7E; --warn: #F0A64B; --on-color: #08101C; --hacker: #3A465E; --phi: #AE9BFF; --scroll: rgba(255, 255, 255, 0.2); --scroll-hover: rgba(255, 255, 255, 0.35); --phi-soft: #2A2352; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0C111C; --surface: #141B2A; --sunk: #1C2436; --ink: #E6EAF2; --muted: #9AA4B8; --line: #283246;
+  --pub: #45C2CC; --pub-soft: #10343A; --priv: #F2689F; --priv-soft: #3C1528; --plain: #E9B43F; --plain-soft: #352910;
+  --ok: #5CCB7E; --warn: #F0A64B; --on-color: #08101C; --hacker: #3A465E; --phi: #AE9BFF; --scroll: rgba(255, 255, 255, 0.2); --scroll-hover: rgba(255, 255, 255, 0.35); --phi-soft: #2A2352; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 1.15rem; font-weight: 700; }
+h3 { font-size: 1rem; font-weight: 700; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--pub); outline-offset: 2px; }
+
+.mv { font-family: var(--f-math); font-style: italic; font-size: 1.12em; letter-spacing: 0.01em; padding-inline: 0.03em; }
+sup, sub { line-height: 0; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; font-size: 0.93em; }
+.num.pub { color: var(--pub); font-weight: 600; }
+.num.priv { color: var(--priv); font-weight: 600; }
+.num-g { font-size: clamp(1.3rem, 3.2vw, 2rem); line-height: 1.15; }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap.estreito { max-width: 760px; }
+.wrap.largo { max-width: 1480px; }
+
+/* ---------- Barra superior ---------- */
+.barra { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.barra-in { max-width: 1480px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.voltar { border: 1px solid var(--line); background: var(--surface); width: 36px; height: 36px; border-radius: 50%; font-size: 1.1rem; line-height: 1; }
+.voltar:hover { background: var(--sunk); }
+.marca { font-family: var(--f-display); font-weight: 800; font-size: 1.15rem; letter-spacing: -0.02em; white-space: nowrap; }
+.marca-sala { color: var(--ink); }
+.marca-rsa { color: var(--surface); background: var(--ink); padding: 0 0.28em; border-radius: 4px; }
+.barra-titulo { font-weight: 600; color: var(--muted); }
+.barra-dir { margin-left: auto; }
+.pin-mini { font-family: var(--f-mono); font-size: 0.9rem; color: var(--muted); }
+.pin-mini b { color: var(--ink); letter-spacing: 0.08em; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.chip .ponto { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.st-room { color: var(--ok); }
+.chip.st-tabs { color: var(--warn); }
+.chip.st-local { color: var(--pub); }
+.chip.st-connecting .ponto { animation: pulsar 1s infinite; }
+.chip.ok-chip { color: var(--ok); }
+.chip.aviso-chip { color: var(--warn); }
+
+/* ---------- Botões ---------- */
+.btn { border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 600; background: var(--ink); color: var(--surface); }
+.btn:hover { filter: brightness(1.12); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+.btn-pub { background: var(--pub); color: var(--on-color); }
+.btn-priv { background: var(--priv); color: var(--on-color); }
+.btn-sec { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn-sec:hover { background: var(--sunk); filter: none; }
+.btn-link { border: 0; background: none; padding: 0; color: var(--pub); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; font-size: 0.88rem; }
+
+.erro { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--priv-soft); color: var(--priv); font-weight: 500; font-size: 0.9rem; }
+.aviso { margin: 4px 0 8px; color: var(--warn); font-size: 0.88rem; }
+.passo-n { color: var(--muted); font-size: 0.86rem; margin: 2px 0 0; }
+
+/* ---------- Painéis ---------- */
+.painel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; min-width: 0; }
+.painel-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.segmentado, .abas { display: inline-flex; background: var(--sunk); border-radius: 10px; padding: 3px; gap: 2px; }
+.segmentado button, .abas button { border: 0; background: transparent; padding: 6px 12px; border-radius: 8px; font-weight: 600; font-size: 0.86rem; color: var(--muted); }
+.segmentado button.on, .abas button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(15, 26, 44, 0.12); }
+
+/* ---------- Anfitrião ---------- */
+.host { container-type: inline-size; }
+.host-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 18px; align-items: start; }
+@container (max-width: 860px) { .host-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.presets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.presets .btn-sec { grid-column: 1 / -1; justify-self: start; padding: 7px 14px; font-size: 0.88rem; }
+.preset { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 10px; }
+.preset b { font-family: var(--f-display); font-weight: 700; }
+.preset small { color: var(--muted); font-size: 0.74rem; line-height: 1.3; }
+.preset:hover { background: var(--sunk); }
+.preset.on { border-color: var(--pub); box-shadow: inset 0 0 0 1px var(--pub); }
+@media (max-width: 560px) { .presets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.manual { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.manual label { display: flex; align-items: center; gap: 6px; flex: 1 1 120px; min-width: 0; }
+.manual input, .campo input, textarea { width: 100%; min-width: 0; border: 1px solid var(--line); background: var(--paper); border-radius: 8px; padding: 8px 10px; font-family: var(--f-mono); }
+.manual input:focus, .campo input:focus, textarea:focus { outline: 2px solid var(--pub); outline-offset: 0; border-color: transparent; }
+
+.passos { list-style: none; counter-reset: passo; padding: 0; margin: 18px 0 0; display: grid; gap: 0; }
+.passos > li { counter-increment: passo; position: relative; padding: 12px 0 12px 40px; border-top: 1px solid var(--line); min-width: 0; }
+.passos > li::before { content: counter(passo); position: absolute; left: 0; top: 12px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; font-size: 0.85rem; background: var(--sunk); color: var(--muted); }
+.passo-t { font-weight: 600; }
+.passo-v { margin-top: 2px; font-size: 1.02rem; overflow-wrap: anywhere; }
+.passo-v .sep { color: var(--muted); margin-inline: 6px; }
+.oculto { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 6px; padding: 8px 12px; border-radius: 8px; background: var(--priv-soft); color: var(--priv); }
+.oculto > span:first-child { font-family: var(--f-mono); font-weight: 600; }
+
+.euclides { margin: 8px 0; }
+.euclides summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--ink); }
+.tabela-rolagem { overflow-x: auto; max-height: 320px; overflow-y: auto; margin: 8px 0; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; font-family: var(--f-mono); font-size: 0.82rem; font-variant-numeric: tabular-nums; width: 100%; }
+th, td { padding: 5px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th { font-family: var(--f-body); font-weight: 600; color: var(--muted); background: var(--sunk); position: sticky; top: 0; }
+tr.alvo td { background: var(--priv-soft); color: var(--priv); font-weight: 600; }
+
+.chaves-par { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 6px; }
+@container (max-width: 520px) { .chaves-par { grid-template-columns: minmax(0, 1fr); } }
+.cartao-chave { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 10px; min-width: 0; }
+.cartao-chave.pub { background: var(--pub-soft); color: var(--pub); }
+.cartao-chave.priv { background: var(--priv-soft); color: var(--priv); }
+.ck-rot { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.ck-val { font-family: var(--f-mono); font-weight: 600; overflow-wrap: anywhere; color: var(--ink); }
+.cartao-chave .ck-val .mv { color: inherit; }
+.ck-nota { font-size: 0.82rem; color: var(--muted); }
+
+.seguranca { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.seg-cab { display: flex; justify-content: space-between; gap: 8px; font-size: 0.86rem; font-weight: 600; }
+.seg-cab b { font-family: var(--f-mono); }
+.seg-trilho { height: 10px; border-radius: 999px; background: var(--sunk); margin: 6px 0; overflow: hidden; }
+.seg-barra { height: 100%; border-radius: 999px; background: var(--priv); transition: width 0.6s ease; }
+
+/* Projeção */
+.projecao { display: flex; flex-direction: column; gap: 16px; }
+.pin-bloco { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 18px 20px; border-radius: 12px; background: var(--ink); color: var(--surface); }
+.pin-rot { font-size: 0.74rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.75; }
+.pin-num { font-family: var(--f-display); font-weight: 800; font-size: clamp(2.6rem, 8vw, 4.4rem); line-height: 1; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.pin-esp { display: inline-block; width: 0.3em; }
+.pin-instr { font-size: 0.9rem; opacity: 0.85; margin-top: 6px; }
+.proj-chave { display: flex; flex-direction: column; gap: 8px; color: var(--pub); padding: 18px 20px; border-radius: 12px; background: var(--pub-soft); }
+.proj-chave .proj-par { padding: 10px 14px; border-radius: 10px; background: var(--surface); }
+.proj-par { display: grid; gap: 4px; color: var(--ink); }
+.proj-var { font-size: 1.3rem; color: var(--pub); }
+.formula { color: var(--muted); font-size: 1rem; }
+.formula.grande { font-size: 1.4rem; color: var(--ink); }
+
+.participantes h2, .feed-cab h2 { display: flex; align-items: center; gap: 8px; }
+.contagem { font-family: var(--f-mono); font-size: 0.8rem; background: var(--sunk); color: var(--muted); border-radius: 999px; padding: 1px 9px; }
+.nomes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.nome { padding: 4px 12px; border-radius: 999px; background: var(--pub-soft); color: var(--pub); font-weight: 600; font-size: 0.88rem; animation: entrar 0.35s ease both; }
+.vazio { color: var(--muted); font-size: 0.9rem; margin: 6px 0 0; }
+
+.feed-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 14px; border-top: 1px solid var(--line); }
+.alternar { display: inline-flex; align-items: center; gap: 6px; font-size: 0.86rem; font-weight: 500; color: var(--muted); cursor: pointer; }
+.alternar input { accent-color: var(--priv); width: 16px; height: 16px; }
+.feed { display: flex; flex-direction: column; gap: 10px; }
+.vazio-feed { padding: 22px 16px; border: 1px dashed var(--line); border-radius: 10px; text-align: center; }
+.vazio-feed p { color: var(--muted); margin: 8px auto 0; max-width: 40ch; font-size: 0.9rem; }
+
+.msg { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface); min-width: 0; animation: entrar 0.35s ease both; }
+.msg-cab { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.msg-nick { font-family: var(--f-display); font-weight: 700; }
+.msg-meta { color: var(--muted); font-size: 0.8rem; font-family: var(--f-mono); }
+.blocos { width: auto; }
+.blocos th { position: static; text-align: left; background: transparent; padding-left: 4px; }
+.blocos td { color: var(--muted); }
+.blocos .linha-m td { color: var(--muted); }
+.blocos .linha-m td.rev { color: var(--plain); font-weight: 600; background: var(--plain-soft); animation: virar 0.3s ease both; }
+.blocos td.mais { color: var(--muted); font-style: italic; }
+.msg .tabela-rolagem { max-height: none; }
+.claro { margin: 8px 0 0; font-size: 1.25rem; font-weight: 600; color: var(--muted); overflow-wrap: anywhere; min-height: 1.6em; }
+.claro.visivel { color: var(--plain); font-family: var(--f-display); animation: surgir 0.4s ease both; }
+.msg .btn { margin-top: 6px; }
+
+/* ---------- Participante ---------- */
+.entrada { display: flex; flex-direction: column; gap: 14px; max-width: 460px; margin: 24px auto 0; }
+.campo { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 0.88rem; }
+.in-pin { font-family: var(--f-display) !important; font-weight: 800; font-size: 2rem !important; letter-spacing: 0.25em; text-align: center; }
+.part { display: flex; flex-direction: column; gap: 14px; }
+.part-cab { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 0.92rem; color: var(--muted); }
+.part-cab b { color: var(--ink); }
+.part-grid { display: flex; flex-direction: column; gap: 14px; }
+.aguardando { text-align: center; padding: 32px 18px; }
+.aguardando p { margin: 4px 0; }
+.pontinhos { display: inline-flex; gap: 6px; margin-bottom: 8px; }
+.pontinhos span { width: 10px; height: 10px; border-radius: 50%; background: var(--pub); animation: pulsar 1.2s infinite; }
+.pontinhos span:nth-child(2) { animation-delay: 0.2s; }
+.pontinhos span:nth-child(3) { animation-delay: 0.4s; }
+
+.compor { display: flex; flex-direction: column; gap: 8px; }
+.compor-rot { font-family: var(--f-display); font-weight: 700; font-size: 1.05rem; }
+textarea { font-family: var(--f-body); font-size: 1.05rem; resize: vertical; line-height: 1.45; }
+.compor-rodape { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.pipeline { display: flex; flex-direction: column; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 16px 10px; min-width: 0; }
+.etapa { padding: 10px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.etapa-t { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.fichas { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.ficha { font-family: var(--f-mono); font-size: 0.78rem; padding: 2px 7px; border-radius: 6px; background: var(--sunk); color: var(--ink); overflow-wrap: anywhere; max-width: 100%; font-variant-numeric: tabular-nums; }
+.ficha.plain { background: var(--plain-soft); color: var(--plain); }
+.ficha.pub { background: var(--pub-soft); color: var(--pub); }
+.ficha.mais { background: transparent; color: var(--muted); font-style: italic; }
+.dica { text-align: center; padding: 6px 0; }
+
+.enviadas { display: flex; flex-direction: column; gap: 10px; }
+.enviada { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.enviada-cab { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+.claro-p { color: var(--plain); font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+
+/* ---------- Ensaio ---------- */
+.intro-ensaio { margin: 0 0 14px; color: var(--muted); max-width: 70ch; }
+.ensaio-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1080px) { .ensaio-grid { grid-template-columns: minmax(0, 1fr); } }
+.rotulo-painel { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.lado-part { min-width: 0; display: flex; flex-direction: column; gap: 10px; position: sticky; top: 76px; }
+@media (max-width: 1080px) { .lado-part { position: static; } }
+.lado-part .abas { align-self: flex-start; }
+
+/* ---------- Início ---------- */
+.inicio { display: flex; flex-direction: column; gap: 28px; padding-top: 40px; }
+.hero { display: flex; flex-direction: column; gap: 12px; }
+.grande-marca { font-size: clamp(2.8rem, 9vw, 5.2rem); line-height: 1; letter-spacing: -0.035em; }
+.grande-marca .marca-rsa { border-radius: 8px; padding: 0 0.18em; }
+.hero-sub { font-size: 1.12rem; max-width: 62ch; margin: 0; color: var(--muted); }
+.hero-sub .mv { color: var(--ink); }
+
+.papeis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 820px) { .papeis { grid-template-columns: minmax(0, 1fr); } }
+.papel { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; border: 0; border-radius: 16px; padding: 20px 22px 18px; color: var(--on-color); min-width: 0; transition: transform 0.15s ease; }
+button.papel:hover { transform: translateY(-3px); }
+.papel-host { background: var(--priv); }
+.papel-part { background: var(--pub); }
+.papel-hacker { background: var(--hacker); color: #E6EAF2; opacity: 0.9; }
+.papel-glifo { font-size: clamp(3rem, 7vw, 4.6rem); line-height: 1; margin-bottom: 4px; }
+.papel-hacker .papel-glifo { font-size: clamp(1.8rem, 4vw, 2.4rem); line-height: 1.6; }
+.papel-glifo .mv { font-weight: 600; }
+.papel-nome { font-family: var(--f-display); font-weight: 800; font-size: 1.5rem; letter-spacing: -0.01em; }
+.papel-desc { font-size: 0.92rem; opacity: 0.92; }
+.papel-cta { margin-top: auto; padding-top: 10px; font-weight: 700; font-size: 0.92rem; }
+
+.ensaio-chamada { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding: 16px 20px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.ensaio-chamada p { margin: 2px 0 0; }
+
+.exemplo { padding-top: 6px; }
+.exemplo h2 { font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-family: var(--f-body); font-weight: 600; margin-bottom: 10px; }
+.exemplo-linha { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--f-mono); font-size: 1.05rem; }
+.pub-t { color: var(--pub); font-weight: 600; }
+.priv-t { color: var(--priv); font-weight: 600; }
+.exemplo .passo-n { margin-top: 10px; max-width: 80ch; }
+
+.carregando { padding: 40px 16px; text-align: center; color: var(--muted); }
+.link-direto { margin-top: 12px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--surface) 25%, transparent); width: 100%; min-width: 0; }
+.link-linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; min-width: 0; }
+.link-linha code { font-family: var(--f-mono); font-size: 0.86rem; overflow-wrap: anywhere; min-width: 0; flex: 1 1 220px; user-select: all; }
+.btn-copiar { border: 1px solid color-mix(in srgb, var(--surface) 50%, transparent); background: transparent; color: var(--surface); border-radius: 8px; padding: 4px 12px; font-weight: 600; font-size: 0.82rem; }
+.btn-copiar:hover { background: color-mix(in srgb, var(--surface) 15%, transparent); }
+.falha { margin-top: 32px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.falha pre { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--priv-soft); color: var(--priv); font-family: var(--f-mono); font-size: 0.82rem; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+
+/* ---------- Euclides estendido: modo didático ---------- */
+/* φ(n) em violeta, e em verde-petróleo: os coeficientes viajam junto com a cor do símbolo. */
+.modo-euclides { flex-wrap: wrap; margin: 10px 0 4px; }
+.didatico { display: flex; flex-direction: column; }
+.fase { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); min-width: 0; }
+.fase h4 { font-family: var(--f-display); font-size: 1rem; font-weight: 700; margin: 0 0 4px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; text-wrap: balance; }
+.fase-num { font-family: var(--f-body); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--ink); color: var(--surface); }
+.sym { font-weight: 600; white-space: nowrap; }
+.sym-phi { color: var(--phi); }
+.sym-e { color: var(--pub); }
+.eq { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 5px; font-family: var(--f-mono); font-size: 0.9rem; font-variant-numeric: tabular-nums; min-width: 0; }
+.eq .op { color: var(--muted); padding-inline: 1px; }
+.termo { display: inline-flex; align-items: baseline; gap: 1px; padding: 0 6px; border-radius: 6px; font-weight: 600; overflow-wrap: anywhere; max-width: 100%; }
+.termo-phi { color: var(--phi); background: var(--phi-soft); }
+.termo-e { color: var(--pub); background: var(--pub-soft); }
+.termo .sym { color: inherit; }
+.resto { font-family: var(--f-body); font-weight: 600; font-size: 0.86em; padding: 0 7px; border-radius: 6px; background: var(--sunk); border: 1px solid var(--line); white-space: nowrap; }
+.par { color: var(--muted); font-size: 1.1em; }
+.coef { font-weight: 600; }
+.um { font-weight: 700; }
+.ida, .voltas { list-style: none; margin: 8px 0 0; padding: 0; }
+.ida > li { display: flex; flex-direction: column; gap: 3px; padding: 8px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.ida > li:last-child { border-bottom: 0; }
+.div-num { font-family: var(--f-mono); font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
+.volta { padding: 12px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.volta:last-child { border-bottom: 0; }
+.volta-t { display: block; font-weight: 700; margin-bottom: 6px; }
+.volta-sub { color: var(--muted); font-weight: 500; }
+.eq-bloco { display: flex; flex-direction: column; gap: 6px; }
+.eq-bloco .eq { position: relative; padding-left: 112px; }
+.eq-rot { position: absolute; left: 0; top: 0.25em; width: 104px; font-family: var(--f-body); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.eq-final { padding-block: 6px; border-radius: 8px; background: var(--sunk); }
+.eq-bloco .eq-final { padding-right: 8px; }
+.eq-final .eq-rot { top: calc(6px + 0.25em); left: 8px; }
+.bezout .eq-final { box-shadow: inset 0 0 0 1px var(--priv); }
+.lacuna { text-align: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.eq-destaque { margin: 6px 0 4px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); font-size: 1rem; }
+.ajuste { margin: 6px 0 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 10px; }
+.ajuste > li > span { display: block; margin-bottom: 4px; }
+.ajuste .termo { font-size: 0.95em; }
+.seta { color: var(--muted); }
+.mod { color: var(--muted); font-family: var(--f-body); }
+.d-sym { color: var(--priv); font-weight: 700; }
+.d-val { color: var(--priv); background: var(--priv-soft); font-weight: 700; padding: 0 7px; border-radius: 6px; }
+@container (max-width: 560px) {
+  .eq-bloco .eq { padding-left: 0; }
+  .eq-rot { position: static; width: 100%; }
+  .eq-final { padding-inline: 8px; }
+}
+
+/* ---------- φ(n) com valor, contexto e teoria de e ---------- */
+.phi-n { font-family: var(--f-mono); font-style: normal; font-size: 0.86em; }
+.contexto { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 10px 0 4px; padding: 8px 12px; border-radius: 8px; background: var(--sunk); font-family: var(--f-mono); font-size: 0.86rem; min-width: 0; overflow-wrap: anywhere; }
+.ctx-rot { font-family: var(--f-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.ctx-sep { color: var(--line); }
+.ctx-nota { flex-basis: 100%; font-family: var(--f-body); font-size: 0.8rem; color: var(--muted); }
+.teoria { margin-top: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); min-width: 0; }
+.teoria summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+.teoria-corpo { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.teoria-item p { margin: 3px 0 0; font-size: 0.88rem; max-width: 68ch; }
+.teoria-rot { display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.teoria-eq { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin-top: 4px; padding: 5px 10px; border-radius: 6px; background: var(--pub-soft); font-family: var(--f-mono); font-size: 0.92rem; max-width: 100%; overflow-wrap: anywhere; }
+.e-tal { font-family: var(--f-body); color: var(--muted); padding-inline: 4px; }
+.teoria-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.teoria-acoes .btn { padding: 6px 12px; font-size: 0.86rem; }
+.bin { font-family: var(--f-mono); font-size: 0.86em; background: var(--sunk); padding: 0 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.teoria-atual { color: var(--muted); }
+
+/* ---------- Caracteres sobre os blocos ---------- */
+.blocos .linha-txt th { color: var(--muted); font-size: 0.72rem; }
+.blocos .linha-txt td { text-align: center; font-family: var(--f-display); font-size: 1rem; color: var(--muted); }
+.blocos .linha-txt td.rev { color: var(--plain); font-weight: 700; animation: virar 0.3s ease both; }
+.blocos .linha-txt td.multi.rev { background: var(--plain-soft); box-shadow: inset 0 -2px 0 var(--plain); }
+.mapa-utf8 { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; min-width: 0; }
+.gc { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; padding: 3px 4px; border-radius: 7px; }
+.gc-char { font-family: var(--f-display); font-weight: 700; font-size: 1.05rem; line-height: 1.2; color: var(--plain); }
+.gc-bytes { display: flex; gap: 3px; }
+.gc-multi { background: var(--plain-soft); box-shadow: inset 0 0 0 1.5px var(--plain); padding-inline: 6px; }
+.gc-multi .ficha { background: var(--surface); }
+.gc-tag { font-size: 0.66rem; font-weight: 600; color: var(--plain); white-space: nowrap; }
+.ficha-btn { border: 1px solid transparent; font: inherit; font-family: var(--f-mono); font-size: 0.78rem; cursor: pointer; }
+.ficha-btn:hover { border-color: var(--plain); }
+.ficha.plain.sel { background: var(--plain); color: var(--on-color); }
+.ficha.pub.sel { background: var(--pub); color: var(--on-color); }
+.sm-valores { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 2px; font-family: var(--f-mono); font-size: 0.88rem; overflow-wrap: anywhere; }
+.v-plain { color: var(--plain); }
+.v-pub { color: var(--pub); }
+
+/* ---------- Confirmação de envio ---------- */
+.btn-enviar { min-width: 9.5em; display: inline-flex; justify-content: center; align-items: center; transition: background-color 0.2s ease; }
+.btn-enviar.enviado { background: var(--ok); color: var(--on-color); }
+.enviado-conteudo { display: inline-flex; align-items: center; gap: 6px; animation: pop 0.35s ease both; }
+.check path { stroke-dasharray: 20; stroke-dashoffset: 20; animation: tracar 0.35s 0.1s ease forwards; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@keyframes pop { 0% { transform: scale(0.85); opacity: 0.3; } 60% { transform: scale(1.06); } 100% { transform: none; opacity: 1; } }
+@keyframes tracar { to { stroke-dashoffset: 0; } }
+
+/* ---------- Painel de chaves: p, q e e ---------- */
+.manual-bloco { display: flex; flex-direction: column; gap: 10px; }
+.ajuda-pq { padding: 10px 14px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); font-size: 0.88rem; }
+.ajuda-pq ul { margin: 6px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 3px; }
+.campo-primo { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 2px 8px; flex: 1 1 160px; min-width: 0; }
+.cp-nome { grid-row: 1; }
+.cp-st { grid-column: 2; font-size: 0.78rem; font-weight: 600; min-height: 1.2em; color: var(--muted); }
+.cp-st.primo { color: var(--ok); }
+.cp-st.composto, .cp-st.formato { color: var(--priv); }
+.manual { align-items: flex-start; }
+.manual .btn { align-self: flex-start; }
+.editor-e { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.editor-linha { display: flex; align-items: center; gap: 8px; }
+.editor-rot { font-size: 1.15rem; }
+.in-e { font-family: var(--f-mono); font-size: 1.05rem; font-weight: 600; color: var(--pub); width: min(100%, 16em); border: 2px solid var(--line); background: var(--paper); border-radius: 8px; padding: 6px 10px; }
+.in-e.ok { border-color: var(--ok); }
+.in-e.erro { border-color: var(--priv); color: var(--priv); }
+.in-e:focus { outline: 2px solid var(--pub); outline-offset: 1px; }
+.e-ok { margin: 0; font-size: 0.86rem; color: var(--ok); font-weight: 500; }
+.e-erro { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--priv-soft); color: var(--priv); font-size: 0.88rem; }
+.atalhos-e { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+.atalhos-e .btn { padding: 6px 12px; font-size: 0.86rem; }
+.atalhos-rot { font-size: 0.78rem; color: var(--muted); margin-left: 4px; }
+.chip-e { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 11px; font-family: var(--f-mono); font-size: 0.84rem; color: var(--pub); }
+.chip-e:hover { border-color: var(--pub); }
+.chip-e.on { background: var(--pub); border-color: var(--pub); color: var(--on-color); }
+.chip-e small { font-family: var(--f-body); font-size: 0.7rem; opacity: 0.8; }
+.aviso-via { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; border: 1px dashed var(--muted); background: var(--sunk); font-size: 0.85rem; color: var(--muted); }
+.aviso-via b { color: var(--ink); }
+
+/* ---------- Interceptador ---------- */
+.btn-hacker { background: var(--hacker); color: #E6EAF2; }
+.painel-hacker { border-color: var(--hacker); }
+.interceptado { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 10px; background: var(--sunk); border: 1px dashed var(--muted); min-width: 0; }
+.interceptado .ck-rot { color: var(--muted); }
+.int-chave { font-family: var(--f-mono); font-weight: 600; color: var(--pub); overflow-wrap: anywhere; }
+.ataque { display: flex; flex-direction: column; gap: 10px; }
+.ataque-opcoes { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ataque-opcoes .segmentado { flex-wrap: wrap; }
+.segmentado button:disabled { opacity: 0.45; cursor: not-allowed; }
+.ataque-sel { display: inline-flex; align-items: center; gap: 6px; font-size: 0.86rem; font-weight: 500; color: var(--muted); }
+.ataque-sel select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+.ataque-acoes { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cronometro { font-family: var(--f-display); font-weight: 800; font-size: 1.8rem; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.cronometro.urgente { color: var(--priv); animation: pulsar 0.8s infinite; }
+.placar { display: flex; flex-direction: column; gap: 10px; }
+.trilho { height: 12px; border-radius: 999px; background: var(--sunk); overflow: hidden; }
+.trilho-barra { height: 100%; background: var(--hacker); border-radius: 999px; transition: width 0.15s linear; }
+.trilho-barra.ok { background: var(--priv); }
+.placar-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.placar-grade > div { display: flex; flex-direction: column; min-width: 0; }
+.placar-grade b { font-size: 1rem; overflow-wrap: anywhere; }
+.pl-rot { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.tentativas { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); font-family: var(--f-mono); font-size: 0.82rem; max-height: 220px; overflow: auto; }
+.tentativa { color: var(--muted); overflow-wrap: anywhere; }
+.tentativa:last-child { color: var(--ink); font-weight: 600; }
+.tentativa.acerto { color: var(--priv); font-weight: 700; }
+.veredito { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 10px; overflow-wrap: anywhere; }
+.veredito.quebrado { background: var(--priv-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--priv); }
+.veredito.quebrado > b { color: var(--priv); }
+.veredito.resistiu { background: var(--pub-soft); box-shadow: inset 0 0 0 1px var(--pub); }
+.veredito.resistiu > b { color: var(--pub); }
+.chip.quebrado-chip { color: var(--priv); }
+.lido { margin: 0; color: var(--priv); font-weight: 600; font-family: var(--f-display); font-size: 1.05rem; overflow-wrap: anywhere; }
+.abas { flex-wrap: wrap; }
+.abas button.aba-hacker.on { background: var(--hacker); color: #E6EAF2; }
+
+/* ---------- Página inicial ---------- */
+h1.marca { margin: 0; }
+.papel-apelido { font-weight: 700; font-size: 0.95rem; opacity: 0.92; margin-top: -4px; }
+.papel-emoji { font-size: clamp(2.8rem, 6vw, 3.8rem) !important; line-height: 1 !important; }
+.papel-hacker { opacity: 1; }
+.solo { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 18px 28px; padding: 24px 26px; border-radius: 18px; background: var(--ink); color: var(--surface); }
+.solo h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); font-weight: 800; color: var(--surface); }
+.solo p { margin: 6px 0 0; opacity: 0.85; max-width: 52ch; }
+.solo-trio { display: flex; gap: 6px; }
+.trio { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font-size: 1.5rem; }
+.trio .mv { font-weight: 600; }
+.t-host { background: var(--priv); color: var(--on-color); }
+.t-part { background: var(--pub); color: var(--on-color); }
+.t-hacker { background: var(--hacker); }
+.btn-solo { background: var(--surface); color: var(--ink); padding: 12px 20px; font-size: 1rem; }
+@media (max-width: 760px) { .solo { grid-template-columns: minmax(0, 1fr); } .solo-trio { order: -1; } .btn-solo { justify-self: start; } }
+.pratica { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 0 20px; }
+.pratica summary { cursor: pointer; padding: 16px 0; font-family: var(--f-display); font-weight: 700; font-size: 1.08rem; }
+.pratica-corpo { display: flex; flex-direction: column; gap: 14px; padding-bottom: 20px; }
+.pratica-nota { margin: 0; font-size: 1.02rem; max-width: 70ch; }
+.pratica-passos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 560px) { .pratica-passos { grid-template-columns: minmax(0, 1fr); } }
+.pp { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 10px; background: var(--pub-soft); }
+.pp-dificil { background: var(--priv-soft); }
+.pp-rot { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.pp-eq { font-family: var(--f-mono); font-size: 1.25rem; font-weight: 600; }
+.pratica-sub { font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-family: var(--f-body); font-weight: 600; }
+
+.tabela-inteira { max-height: none; overflow-y: visible; }
+.tabela-inteira th { position: static; }
+/* ---------- Metáfora: cadeados, chaves e caixas ---------- */
+.etiqueta { display: inline-block; vertical-align: middle; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-family: var(--f-body); font-size: 0.72rem; font-weight: 600; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+.et-pub { background: var(--pub); color: var(--on-color); }
+.et-priv { background: var(--priv); color: var(--on-color); }
+.caixa-ico { display: inline-block; margin-right: 6px; }
+.caixa-ico.aberta { animation: pop 0.4s ease both; }
+.th-ico { font-size: 0.8em; margin-right: 3px; }
+.ficha.selada { position: relative; padding: 4px 9px 4px 22px; border-radius: 4px; border: 1.5px solid var(--pub); background: linear-gradient(90deg, var(--pub-soft) 0 14px, var(--surface) 14px); box-shadow: 0 1px 0 var(--line); }
+.ficha.selada::before { content: "🔒"; position: absolute; left: 2px; top: 50%; transform: translateY(-50%); font-size: 0.62rem; }
+.ficha.selada.aberta { border-style: dashed; opacity: 0.8; }
+.ficha.selada.aberta::before { content: "📦"; }
+.ficha.selada.sel { background: var(--pub); color: var(--on-color); }
+.h-sub { display: block; font-family: var(--f-body); font-weight: 500; font-size: 0.86rem; color: var(--muted); margin-top: 2px; }
+.fechadura { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 12px; background: var(--sunk); border: 1px solid var(--line); }
+.fe-ico { font-size: 2.2rem; line-height: 1; }
+.fe-forcando .fe-ico { animation: chacoalhar 0.35s ease-in-out infinite; }
+.fe-aberta .fe-ico { animation: pop 0.45s ease both; }
+.fe-corpo { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.fe-pinos { display: flex; gap: 4px; align-items: flex-end; height: 26px; }
+.pino { flex: 1; height: 100%; border-radius: 3px 3px 1px 1px; background: var(--hacker); opacity: 0.85; transition: height 0.25s ease, background-color 0.25s ease; }
+.pino.caido { height: 30%; background: var(--priv); }
+.pino.mexendo { animation: mexer 0.3s ease-in-out infinite alternate; }
+.fe-aberta .pino { background: var(--priv); height: 30%; }
+.fe-resistiu .pino:not(.caido) { background: var(--pub); }
+.fe-rot { font-size: 0.86rem; font-weight: 600; overflow-wrap: anywhere; }
+.fe-cand { font-family: var(--f-mono); font-weight: 400; color: var(--muted); }
+@keyframes chacoalhar { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+@keyframes mexer { from { height: 100%; } to { height: 70%; } }
+
+/* ---------- Cabeçalho dos cartões de chave e controles de d ---------- */
+.ck-cab { display: flex; align-items: center; justify-content: space-between; gap: 4px 8px; flex-wrap: wrap; min-width: 0; }
+.ck-cab .ck-rot { white-space: nowrap; flex: 0 0 auto; }
+.ck-cab .etiqueta { margin-left: 0; flex: 0 0 auto; }
+.acoes-d { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 6px; }
+.btn-acordeao { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 12px; font-weight: 600; font-size: 0.86rem; color: var(--ink); display: inline-flex; gap: 6px; align-items: center; }
+.btn-acordeao:hover { background: var(--sunk); }
+.btn-acordeao[aria-expanded="true"] { border-color: var(--ink); }
+.euclides-painel { margin-top: 10px; padding: 4px 14px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.aviso-d { margin: 10px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--priv-soft); color: var(--priv); font-size: 0.84rem; }
+
+/* ---------- Cards da página inicial alinhados ---------- */
+.papeis { align-items: stretch; }
+.papel { justify-content: flex-start; }
+.papel-glifo { height: 80px; min-height: 80px; display: flex; align-items: center; justify-content: flex-start; margin-bottom: 4px; line-height: 1; overflow: visible; }
+.papel-hacker .papel-glifo, .papel-emoji { font-size: clamp(2.8rem, 6vw, 3.8rem) !important; line-height: 1 !important; }
+.papel-nome { line-height: 1.2; min-height: 1.2em; }
+.papel-apelido { line-height: 1.4; min-height: 1.4em; margin-top: 0; }
+.papel-desc { margin-top: 4px; }
+.papel-cta { margin-top: auto; padding-top: 14px; }
+
+/* ---------- Nome do Guardião, QR Code e modal ---------- */
+.nome-sala, .nome-edit { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; width: 100%; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--surface) 25%, transparent); font-size: 0.95rem; }
+.nome-sala b { font-family: var(--f-display); font-size: 1.1rem; }
+.nome-papel { opacity: 0.7; }
+.nome-sala .btn-copiar { margin-left: auto; }
+.nome-edit input { flex: 1 1 160px; min-width: 0; border: 1px solid color-mix(in srgb, var(--surface) 50%, transparent); background: transparent; color: var(--surface); border-radius: 8px; padding: 5px 10px; }
+.pin-topo { display: flex; align-items: center; justify-content: space-between; gap: 14px 20px; width: 100%; flex-wrap: wrap; }
+.pin-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 220px; }
+.qr { flex: none; width: clamp(128px, 22vw, 168px); padding: 6px; border-radius: 10px; background: #FFFFFF; }
+.qr svg { display: block; width: 100%; height: auto; }
+.qr-falha { font-size: 0.82rem; opacity: 0.8; max-width: 16em; margin: 0; }
+.pin-aviso { margin: 10px 0 0; font-size: 0.82rem; opacity: 0.85; }
+.pin-link { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--pub-soft); color: var(--pub); font-weight: 600; font-size: 0.9rem; }
+.modal-fundo { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: color-mix(in srgb, var(--ink) 55%, transparent); padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal { width: min(100%, 440px); display: flex; flex-direction: column; gap: 12px; padding: 22px; border-radius: 16px; background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); animation: pop 0.25s ease both; }
+.modal-glifo { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; font-size: 2rem; background: var(--priv); color: var(--on-color); }
+.modal h2 { font-size: 1.4rem; font-weight: 800; }
+.modal-acoes { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Simulação solo: tela cheia, colunas com rolagem própria ---------- */
+.editor-recolhido summary { color: var(--pub); }
+.editor-recolhido .editor-e { margin-top: 8px; }
+@media (min-width: 1081px) {
+  .tela-solo { height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; overflow: hidden; }
+  .tela-solo .barra { position: relative; top: 0; flex: none; }
+  .solo-wrap { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; padding-block: 14px 14px; }
+  .solo-wrap .intro-ensaio { flex: none; margin-bottom: 10px; }
+  .solo-wrap .ensaio-grid { flex: 1; min-height: 0; align-items: stretch; }
+  .col-rolagem { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 6px; scrollbar-gutter: stable; }
+  .lado-part.col-rolagem { position: static; }
+  .col-rolagem:focus-visible { outline-offset: -2px; }
+}
+
+/* ---------- Dica do emissor, síntese das fórmulas, prova ---------- */
+.dica-card { margin: 0; padding: 8px 12px; border-radius: 10px; border: 1px dashed var(--line); background: var(--surface); color: var(--muted); font-size: 0.85rem; text-align: center; text-wrap: balance; }
+.sintese { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 420px) { .sintese { grid-template-columns: minmax(0, 1fr); } }
+.sint { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; min-width: 0; }
+.sint-pub { background: var(--pub-soft); color: var(--pub); }
+.sint-priv { background: var(--priv-soft); color: var(--priv); }
+.sint-rot { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.sint-rot small { font-size: 1em; text-transform: none; letter-spacing: 0; font-weight: 500; opacity: 0.85; }
+.sint-eq { font-size: 1.15rem; color: var(--ink); white-space: nowrap; }
+.prova { margin-top: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.prova summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+.prova-passos { margin: 10px 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 12px; }
+.prova-passos p { margin: 3px 0 0; font-size: 0.9rem; }
+.prova-t { font-weight: 600; font-size: 0.88rem; }
+.prova-eq { margin-top: 4px; padding: 6px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); font-size: 1.05rem; overflow-x: auto; white-space: nowrap; }
+.prova-nota { margin: 12px 0 4px; padding: 8px 12px; border-radius: 8px; background: var(--pub-soft); font-size: 0.9rem; }
+.id-chave { font-family: var(--f-mono); font-weight: 600; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
+
+/* ---------- Barras de rolagem discretas ---------- */
+* { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ---------- Carregando chaves ---------- */
+.painel.chaves { position: relative; }
+.carregando-chaves { position: sticky; top: 8px; z-index: 3; display: flex; align-items: center; gap: 10px; margin: -4px 0 12px; padding: 10px 14px; border-radius: 10px; background: var(--ink); color: var(--surface); font-weight: 600; font-size: 0.9rem; }
+.giro { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid color-mix(in srgb, var(--surface) 30%, transparent); border-top-color: var(--surface); animation: girar 0.8s linear infinite; flex: none; }
+.chaves.calculando .passos, .chaves.calculando .chaves-par, .chaves.calculando .seguranca { opacity: 0.45; transition: opacity 0.2s ease; }
+.chaves.calculando .presets, .chaves.calculando .manual-bloco { pointer-events: none; opacity: 0.6; }
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* ---------- Alerta de primos próximos ---------- */
+.alerta-fermat { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--warn) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); color: var(--ink); font-size: 0.88rem; }
+.af-dif { display: block; margin-top: 4px; font-family: var(--f-mono); font-size: 0.82rem; color: var(--warn); overflow-wrap: anywhere; }
+
+@keyframes pulsar { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+@keyframes entrar { from { opacity: 0.2; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes virar { from { transform: rotateX(80deg); } to { transform: none; } }
+@keyframes surgir { from { opacity: 0.3; letter-spacing: 0.08em; } to { opacity: 1; letter-spacing: normal; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .check path { stroke-dashoffset: 0; }
+  .giro { animation: girar 1.6s linear infinite !important; }
+}
+</style>
+<div id="app"><p class="carregando">Carregando o RSA Room…</p></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script id="rsa-core">
+/* ============================================================
+   Núcleo matemático RSA — BigInt puro, sem dependências.
+   ============================================================ */
+const bitLen = (n) => (n === 0n ? 0 : n.toString(2).length);
+
+function modPow(b, e, m) {
+  let r = 1n;
+  b %= m;
+  while (e > 0n) {
+    if (e & 1n) r = (r * b) % m;
+    e >>= 1n;
+    b = (b * b) % m;
+  }
+  return r;
+}
+
+/* Exponenciação rápida da esquerda para a direita, registrando cada passo
+   (para a tabela "quadrado e multiplica" do participante). */
+function modPowSteps(b, e, m) {
+  const bits = e.toString(2);
+  let r = 1n;
+  b %= m;
+  const passos = [];
+  for (const bit of bits) {
+    const quadrado = (r * r) % m;
+    const depois = bit === "1" ? (quadrado * b) % m : quadrado;
+    passos.push({ bit, quadrado, depois });
+    r = depois;
+  }
+  return { passos, r };
+}
+
+function gcd(a, b) {
+  while (b) [a, b] = [b, a % b];
+  return a;
+}
+
+/* Algoritmo de Euclides estendido para e·d ≡ 1 (mod φ).
+   Cada linha satisfaz r_i ≡ t_i · e (mod φ). */
+function inversoComTabela(e, phi) {
+  const linhas = [{ r: phi, q: null, t: 0n }, { r: e, q: null, t: 1n }];
+  let oldR = phi, r = e, oldT = 0n, t = 1n;
+  while (r !== 0n) {
+    const q = oldR / r;
+    linhas[linhas.length - 1].q = q;
+    [oldR, r] = [r, oldR - q * r];
+    [oldT, t] = [t, oldT - q * t];
+    linhas.push({ r, q: null, t });
+  }
+  const g = oldR;
+  const d = ((oldT % phi) + phi) % phi;
+  return { linhas, g, d, tBruto: oldT };
+}
+
+/* Mesma conta, organizada para a explicação simbólica em 2 fases.
+   Cada item guarda seu valor e sua forma s·φ(n) + t·e.
+   passos[i] = { A, B, q, r, novo } com A = q·B + r e novo = A − q·B. */
+function euclidesSimbolico(phi, e) {
+  const itens = [
+    { tipo: "phi", v: phi, s: 1n, t: 0n },
+    { tipo: "e", v: e, s: 0n, t: 1n },
+  ];
+  const passos = [];
+  let final = null;
+  for (;;) {
+    const A = itens[itens.length - 2], B = itens[itens.length - 1];
+    const q = A.v / B.v, r = A.v % B.v;
+    if (r === 0n) { final = { A, B, q }; break; }
+    const novo = { tipo: "resto", v: r, s: A.s - q * B.s, t: A.t - q * B.t };
+    passos.push({ A, B, q, r, novo });
+    itens.push(novo);
+  }
+  const ultimo = passos[passos.length - 1];
+  return { passos, final, mdc: final.B.v, x: ultimo ? ultimo.novo.s : null, y: ultimo ? ultimo.novo.t : null };
+}
+
+const BASES_MR =[2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n];
+/* Miller–Rabin com essas 12 bases é determinístico para n < 3,3·10^24. */
+function ehPrimo(n) {
+  if (n < 2n) return false;
+  for (const p of BASES_MR) {
+    if (n === p) return true;
+    if (n % p === 0n) return false;
+  }
+  let d = n - 1n, s = 0;
+  while ((d & 1n) === 0n) { d >>= 1n; s++; }
+  externo: for (const a of BASES_MR) {
+    let x = modPow(a, d, n);
+    if (x === 1n || x === n - 1n) continue;
+    for (let i = 1; i < s; i++) {
+      x = (x * x) % n;
+      if (x === n - 1n) continue externo;
+    }
+    return false;
+  }
+  return true;
+}
+
+function bigAleatorio(bits) {
+  const nBytes = Math.ceil(bits / 8);
+  const a = new Uint8Array(nBytes);
+  crypto.getRandomValues(a);
+  let x = 0n;
+  for (const v of a) x = (x << 8n) | BigInt(v);
+  x >>= BigInt(nBytes * 8 - bits);
+  x |= 1n << BigInt(bits - 1);
+  x |= 1n;
+  return x;
+}
+
+function primoAleatorio(bits) {
+  for (;;) {
+    const c = bigAleatorio(bits);
+    if (ehPrimo(c)) return c;
+  }
+}
+
+function escolherE(phi) {
+  for (const c of [65537n, 257n, 17n, 5n, 3n]) if (c < phi && gcd(c, phi) === 1n) return c;
+  for (let c = 3n; c < phi; c += 2n) if (gcd(c, phi) === 1n) return c;
+  return null;
+}
+
+/* Quantos bytes cabem em um bloco m com m < n (256^k ≤ 2^(bits(n)-1) ≤ n). */
+const bytesPorBloco = (n) => Math.floor((bitLen(n) - 1) / 8);
+
+function impressao(n) {
+  let h = 2166136261 >>> 0;
+  const s = n.toString();
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0").slice(0, 6);
+}
+
+function montarChave(p, q, eDesejado) {
+  if (!ehPrimo(p)) return { erro: `p = ${p} não é primo.` };
+  if (!ehPrimo(q)) return { erro: `q = ${q} não é primo.` };
+  if (p === q) return { erro: "p e q precisam ser primos diferentes." };
+  const n = p * q;
+  if (n <= 255n) return { erro: `n = ${n} é pequeno demais: precisa ser maior que 255 para caber 1 byte por bloco.` };
+  const phi = (p - 1n) * (q - 1n);
+  let e = eDesejado ?? escolherE(phi);
+  if (e === null || e <= 1n || e >= phi) return { erro: `e precisa satisfazer 1 < e < φ(n) = ${phi}.` };
+  if (gcd(e, phi) !== 1n) return { erro: `mdc(${e}, ${phi}) = ${gcd(e, phi)} ≠ 1, então e não tem inverso módulo φ(n).` };
+  const inv = inversoComTabela(e, phi);
+  return { p, q, n, phi, e, d: inv.d, inv, k: bytesPorBloco(n), kid: impressao(n) };
+}
+
+/* Texto ↔ blocos numéricos (UTF-8, k bytes por bloco, big-endian). */
+const codificador = new TextEncoder();
+const decodificador = new TextDecoder("utf-8");
+
+function paraBlocos(texto, k) {
+  const bytes = [...codificador.encode(texto)];
+  const blocos = [];
+  for (let i = 0; i < bytes.length; i += k) {
+    let m = 0n;
+    for (let j = 0; j < k; j++) m = (m << 8n) | BigInt(bytes[i + j] ?? 0);
+    blocos.push(m);
+  }
+  return { bytes, blocos };
+}
+
+function blocosParaBytes(ms, k, L) {
+  const saida = [];
+  for (const m of ms) {
+    const pedaco = [];
+    let x = m;
+    for (let j = 0; j < k; j++) { pedaco.unshift(Number(x & 255n)); x >>= 8n; }
+    saida.push(...pedaco);
+  }
+  return saida.slice(0, L);
+}
+
+function deBlocos(ms, k, L) {
+  return decodificador.decode(new Uint8Array(blocosParaBytes(ms, k, L)));
+}
+
+/* Separa os bytes em caracteres UTF-8: [{ texto, ini, fim }] (fim exclusivo).
+   Byte inválido (ex.: chave errada) vira o caractere de substituição (U+FFFD) de 1 byte. */
+function segmentarUtf8(bytes) {
+  const out = [];
+  let i = 0;
+  while (i < bytes.length) {
+    const b = bytes[i];
+    let len = b < 0x80 ? 1 : b >> 5 === 6 ? 2 : b >> 4 === 14 ? 3 : b >> 3 === 30 ? 4 : 1;
+    if (i + len > bytes.length) len = 1;
+    for (let j = 1; j < len; j++) if (bytes[i + j] >> 6 !== 2) { len = 1; break; }
+    out.push({ texto: decodificador.decode(new Uint8Array(bytes.slice(i, i + len))), ini: i, fim: i + len });
+    i += len;
+  }
+  return out;
+}
+
+/* Agrupa blocos consecutivos até fecharem caracteres inteiros:
+   [{ ini, span, texto }] — com 1 byte por bloco, "á" ocupa uma célula de span 2. */
+function celulasPorBloco(chars, k, nBlocos) {
+  const cel = [];
+  let ci = 0, b = 0;
+  while (b < nBlocos) {
+    let fim = b, texto = "";
+    while (ci < chars.length && Math.floor(chars[ci].ini / k) <= fim) {
+      texto += chars[ci].texto;
+      fim = Math.max(fim, Math.floor((chars[ci].fim - 1) / k));
+      ci++;
+    }
+    fim = Math.min(fim, nBlocos - 1);
+    cel.push({ ini: b, span: fim - b + 1, texto });
+    b = fim + 1;
+  }
+  return cel;
+}
+
+/* Inteiro uniforme em [0, max). */
+function abaixoDe(max) {
+  const b = bitLen(max), nB = Math.ceil(b / 8);
+  for (;;) {
+    const a = new Uint8Array(nB);
+    crypto.getRandomValues(a);
+    let x = 0n;
+    for (const v of a) x = (x << 8n) | BigInt(v);
+    x >>= BigInt(nB * 8 - b);
+    if (x < max) return x;
+  }
+}
+
+/* e sorteado uniformemente entre os valores 1 < e < φ com mdc(e, φ) = 1. */
+function eAleatorio(phi) {
+  for (;;) {
+    const e = abaixoDe(phi);
+    if (e > 1n && gcd(e, phi) === 1n) return e;
+  }
+}
+
+/* Quantos e válidos existem: φ(φ(n)) − 1 (tira o e = 1). Só fatora φ(n) pequeno. */
+function contarEValidos(phi) {
+  if (phi > 1000000000000n) return null;
+  let m = phi, tot = phi;
+  for (let p = 2n; p * p <= m; p += p === 2n ? 1n : 2n) {
+    if (m % p === 0n) { tot -= tot / p; while (m % p === 0n) m /= p; }
+  }
+  if (m > 1n) tot -= tot / m;
+  return tot - 1n;
+}
+
+/* Validação do e digitado: { estado: "vazio"|"formato"|"intervalo"|"mdc"|"ok", e, g } */
+function validarE(txt, phi) {
+  const s = String(txt).trim();
+  if (!s) return { estado: "vazio" };
+  if (!/^\d{1,60}$/.test(s)) return { estado: "formato" };
+  const e = BigInt(s);
+  if (e <= 1n || e >= phi) return { estado: "intervalo", e };
+  const g = gcd(e, phi);
+  if (g !== 1n) return { estado: "mdc", e, g };
+  return { estado: "ok", e, g };
+}
+
+/* Os k menores e válidos (1 < e < φ, mdc = 1). */
+function menoresEValidos(phi, k) {
+  const out = [];
+  for (let c = 2n; c < phi && out.length < k && c < 100000n; c++) if (gcd(c, phi) === 1n) out.push(c);
+  return out;
+}
+
+/* Raiz quadrada inteira (piso) por Newton, partindo de cima. */
+function isqrt(n) {
+  if (n < 2n) return n;
+  let x = 1n << BigInt(Math.ceil(bitLen(n) / 2));
+  for (;;) {
+    const y = (x + n / x) >> 1n;
+    if (y >= x) return x;
+    x = y;
+  }
+}
+
+/* ---------- Ataque do interceptador: fatorar n ----------
+   "divisao": testa 2 e depois todos os ímpares até √n.
+   "crivo": primeiro marca os compostos até √n (Crivo de Eratóstenes),
+            depois divide n só pelos primos que sobraram.
+   passo(ms) trabalha por até ms milissegundos e devolve o estado. */
+const CRIVO_MAX = 20000000;
+const agora = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+function crivoPossivel(n) {
+  return n <= BigInt(Number.MAX_SAFE_INTEGER) && isqrt(n) <= BigInt(CRIVO_MAX);
+}
+
+function criarAtaque(n, alg) {
+  const R = isqrt(n);
+  const usaNum = n <= BigInt(Number.MAX_SAFE_INTEGER);
+  if (alg === "crivo" && !crivoPossivel(n)) throw new Error("crivo indisponível para este n");
+  const st = { alg, fase: alg === "crivo" ? "crivo" : "divisao", testes: 0, varridos: 0, marcados: 0,
+    candidato: 2n, raiz: R, achou: null, acabou: false, progressoCrivo: 0, ultimos: [] };
+  const N = usaNum ? Number(n) : 0, RN = usaNum ? Number(R) : 0;
+  let d = 2, dB = 2n;
+  let comp = null, sp = 3, sm = 0;
+  if (alg === "crivo") comp = new Uint8Array((RN >> 1) + 1);
+  const raizR = Math.sqrt(RN);
+
+  function achar(p) { st.achou = { p, q: n / p }; st.candidato = p; }
+
+  /* maxOps limita o trabalho por passo (câmera lenta); registrar guarda as últimas divisões. */
+  function anotar(dv, resto) {
+    st.ultimos.push({ d: dv, resto });
+    if (st.ultimos.length > 8) st.ultimos.shift();
+  }
+  function passo(ms, maxOps = Infinity, registrar = false) {
+    const fim = agora() + ms;
+    let ops = 0;
+    if (st.achou || st.acabou) return st;
+    if (st.fase === "crivo") {
+      while (agora() < fim && st.fase === "crivo") {
+        for (let i = 0; i < 200000; i++) {
+          if (ops++ >= maxOps) break;
+          if (sp * sp > RN) { st.fase = "divisao"; st.progressoCrivo = 1; break; }
+          if (sm === 0) {
+            if (comp[sp >> 1]) { sp += 2; continue; }
+            sm = sp * sp;
+          }
+          comp[sm >> 1] = 1;
+          st.marcados++;
+          sm += 2 * sp;
+          if (sm > RN) { sm = 0; sp += 2; }
+        }
+        if (st.fase === "crivo") { st.progressoCrivo = Math.min(1, sp / raizR); st.candidato = BigInt(sp); }
+        if (ops >= maxOps) break;
+      }
+      return st; /* a fase de divisão começa no próximo passo, com o seu próprio limite */
+    }
+    if (usaNum) {
+      while (agora() < fim) {
+        for (let i = 0; i < 20000; i++) {
+          if (ops >= maxOps) break;
+          if (d > RN) { st.acabou = true; st.candidato = BigInt(d); return st; }
+          st.varridos++;
+          if (d === 2) { st.testes++; ops++; if (registrar) anotar(2, N % 2); if (N % 2 === 0) { achar(2n); return st; } d = 3; continue; }
+          if (comp && comp[d >> 1]) { d += 2; continue; }
+          st.testes++;
+          ops++;
+          if (registrar) anotar(d, N % d);
+          if (N % d === 0) { achar(BigInt(d)); return st; }
+          d += 2;
+        }
+        if (ops >= maxOps) break;
+      }
+      st.candidato = BigInt(d);
+    } else {
+      while (agora() < fim) {
+        for (let i = 0; i < 2000; i++) {
+          if (ops++ >= maxOps) break;
+          if (dB > R) { st.acabou = true; st.candidato = dB; return st; }
+          st.varridos++;
+          st.testes++;
+          const resto = n % dB;
+          if (registrar) anotar(dB, resto);
+          if (resto === 0n) { achar(dB); return st; }
+          dB = dB === 2n ? 3n : dB + 2n;
+        }
+        if (ops >= maxOps) break;
+      }
+      st.candidato = dB;
+    }
+    return st;
+  }
+  return { passo, estado: st };
+}
+
+const popcount = (x) => x.toString(2).split("").filter((c) => c === "1").length;
+
+/* Estimativa didática para o ataque por divisão por tentativas:
+   testar os ímpares até √n, a ~2·10^7 divisões BigInt por segundo. */
+function estimativaFatoracao(n) {
+  const raizBits = Math.ceil(bitLen(n) / 2);
+  const testesLog10 = (raizBits - 1) * Math.log10(2);
+  const segundos = Math.pow(10, testesLog10 - Math.log10(2e7));
+  return { testesLog10, segundos };
+}
+
+function formatarDuracao(s) {
+  if (!isFinite(s)) return "tempo astronômico";
+  if (s < 0.001) return "menos de 1 ms";
+  if (s < 1) return `${Math.round(s * 1000)} ms`;
+  if (s < 60) return `${s.toFixed(1).replace(".", ",")} s`;
+  if (s < 3600) return `${Math.round(s / 60)} min`;
+  if (s < 86400) return `${Math.round(s / 3600)} h`;
+  if (s < 86400 * 365) return `${Math.round(s / 86400)} dias`;
+  const anos = s / (86400 * 365);
+  if (anos < 1e6) return `${Math.round(anos).toLocaleString("pt-BR")} anos`;
+  return `10^${Math.floor(Math.log10(anos))} anos`;
+}
+
+</script>
+<script>
+/* ============================================================
+   Interface — React 18 + htm (sintaxe próxima de JSX, sem build).
+   ============================================================ */
+const { useState, useEffect, useRef, useMemo } = React;
+const html = htm.bind(React.createElement);
+
+const PRESETS = [
+  { id: "mini", nome: "Mini", bits: 6, nota: "p, q com 2 dígitos" },
+  { id: "peq", nome: "Pequena", bits: 12, nota: "p, q com 4 dígitos" },
+  { id: "med", nome: "Média", bits: 24, nota: "p, q com 8 dígitos" },
+  { id: "gde", nome: "Grande", bits: 64, nota: "p, q com 19–20 dígitos" },
+];
+
+const rid = (n = 8) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");
+const novoPin = () => String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+const reduzMovimento = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+/* soDigitos: o que o usuário digita (p, q, e: até 60 dígitos).
+   numeroDaSala: o que trafega pela sala (n, e, blocos c). Como p e q têm até 60 dígitos,
+   n = p·q tem até 120; um limite de 60 aqui fazia o participante ignorar chaves grandes. */
+const soDigitos = (s) => /^\d{1,60}$/.test(s);
+const numeroDaSala = (s) => /^\d{1,130}$/.test(s);
+
+/* Agrupa dígitos de 3 em 3 com espaço fino, como em textos de matemática. */
+function agrupar(v) {
+  const s = v.toString();
+  if (s.length < 5) return s;
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+/* ============================================================
+   Camada de sincronização — uma interface, três transportes.
+   { kind, setPresence(obj), subscribe(cb(peers)) → unsub, close() }
+   peers = [{ id, isMe, presence }]
+   Para o GitHub Pages, basta criar um transporte Firebase com a mesma forma.
+   ============================================================ */
+function criarBarramentoLocal() {
+  const salas = new Map();
+  return {
+    connect(pin) {
+      if (!salas.has(pin)) salas.set(pin, { membros: new Map(), subs: new Set() });
+      const sala = salas.get(pin);
+      const id = rid();
+      sala.membros.set(id, {});
+      const avisar = () => sala.subs.forEach((f) => f());
+      const t = {
+        kind: "local",
+        setPresence(p) { sala.membros.set(id, p); avisar(); },
+        subscribe(cb) {
+          const f = () => cb([...sala.membros].map(([pid, pr]) => ({ id: pid, isMe: pid === id, presence: pr })));
+          sala.subs.add(f);
+          queueMicrotask(f);
+          return () => sala.subs.delete(f);
+        },
+        close() { sala.membros.delete(id); avisar(); },
+      };
+      avisar();
+      return t;
+    },
+  };
+}
+const barramentoDaPagina = criarBarramentoLocal();
+
+function transporteAbas(pin) {
+  if (typeof BroadcastChannel === "undefined") return barramentoDaPagina.connect(pin);
+  const canal = new BroadcastChannel("sala-rsa-" + pin);
+  const id = rid();
+  let minha = {};
+  const outros = new Map();
+  const subs = new Set();
+  const retrato = () => [{ id, isMe: true, presence: minha }, ...[...outros].map(([k, v]) => ({ id: k, isMe: false, presence: v.presence }))];
+  const avisar = () => { const s = retrato(); subs.forEach((f) => f(s)); };
+  const postar = (m) => { try { canal.postMessage(m); } catch (_) {} };
+  canal.onmessage = (ev) => {
+    const m = ev.data;
+    if (!m || typeof m !== "object" || m.id === id) return;
+    if (m.type === "p" && m.presence && typeof m.presence === "object") {
+      outros.set(m.id, { presence: m.presence, visto: Date.now() });
+      avisar();
+    } else if (m.type === "oi") {
+      postar({ type: "p", id, presence: minha });
+    } else if (m.type === "tchau") {
+      outros.delete(m.id);
+      avisar();
+    }
+  };
+  postar({ type: "oi", id });
+  const intervalo = setInterval(() => {
+    postar({ type: "p", id, presence: minha });
+    const agora = Date.now();
+    let mudou = false;
+    for (const [k, v] of outros) if (agora - v.visto > 7000) { outros.delete(k); mudou = true; }
+    if (mudou) avisar();
+  }, 2000);
+  const sair = () => postar({ type: "tchau", id });
+  window.addEventListener("pagehide", sair);
+  return {
+    kind: "tabs",
+    setPresence(p) { minha = p; postar({ type: "p", id, presence: minha }); avisar(); },
+    subscribe(cb) { subs.add(cb); queueMicrotask(() => cb(retrato())); return () => subs.delete(cb); },
+    close() { clearInterval(intervalo); sair(); window.removeEventListener("pagehide", sair); canal.close(); },
+  };
+}
+
+/* Sala em tempo real entre aparelhos, oferecida pelo visualizador do Claude. */
+let promessaSala = null;
+function capacidadeSala() {
+  if (!promessaSala) {
+    const use = window.claude && typeof window.claude.use === "function" ? window.claude.use.bind(window.claude) : null;
+    promessaSala = use
+      ? Promise.race([use("room").catch(() => null), new Promise((r) => setTimeout(() => r(null), 6000))])
+      : Promise.resolve(null);
+  }
+  return promessaSala;
+}
+
+async function transporteSala(pin) {
+  const room = await capacidadeSala();
+  if (!room) return null;
+  let r;
+  try { r = await room.join("rsa-" + pin); } catch (_) { return null; }
+  const subs = new Set();
+  const mapear = (lista) => lista.filter((p) => p.kind === "viewer").map((p) => ({ id: p.peer, isMe: p.sameTab, presence: p.presence || {} }));
+  const parar = r.onPeers((ch) => { const s = mapear(ch.peers); subs.forEach((f) => f(s)); }, () => {});
+  return {
+    kind: "room",
+    setPresence(p) { r.presence(p).catch(() => {}); },
+    subscribe(cb) { subs.add(cb); queueMicrotask(() => cb(mapear(r.peers()))); return () => subs.delete(cb); },
+    close() { parar(); r.leave().catch(() => {}); },
+  };
+}
+
+/* Sala em tempo real entre aparelhos via Supabase Realtime (Presence).
+   Usada fora do Claude, quando o config.js traz a URL e a chave do projeto Supabase. */
+let clienteSupabase = null;
+function configSupabase() {
+  const c = window.RSA_CONFIG || {};
+  const ok = typeof c.SUPABASE_URL === "string" && /^https:\/\/\S+$/.test(c.SUPABASE_URL.trim()) &&
+    typeof c.SUPABASE_KEY === "string" && c.SUPABASE_KEY.trim().length > 20 &&
+    window.supabase && typeof window.supabase.createClient === "function";
+  return ok ? c : null;
+}
+
+async function transporteSupabase(pin) {
+  const cfg = configSupabase();
+  if (!cfg) return null;
+  let canal;
+  const meuId = rid();
+  try {
+    if (!clienteSupabase) {
+      clienteSupabase = window.supabase.createClient(cfg.SUPABASE_URL.trim(), cfg.SUPABASE_KEY.trim(), {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
+    }
+    canal = clienteSupabase.channel("rsa-" + pin, { config: { presence: { key: meuId } } });
+  } catch (_) { return null; }
+
+  const subs = new Set();
+  let minha = {};
+  let fechado = false;
+  let timer = null;
+
+  const retrato = () => {
+    const est = canal.presenceState();
+    const outros = Object.keys(est).filter((k) => k !== meuId).map((k) => {
+      const metas = est[k] || [];
+      const ult = metas[metas.length - 1] || {};
+      return { id: k, isMe: false, presence: ult.p && typeof ult.p === "object" ? ult.p : {} };
+    });
+    return [{ id: meuId, isMe: true, presence: minha }, ...outros];
+  };
+  const avisar = () => { const s = retrato(); subs.forEach((f) => f(s)); };
+
+  /* O plano gratuito limita as mensagens de presença por segundo. Por isso, chamadas seguidas
+     são juntadas em uma só e, se o envio falhar, tenta de novo com um atraso aleatório. */
+  const enviar = (tentativa = 0) => {
+    if (fechado) return;
+    const refazer = () => {
+      if (!fechado && tentativa < 4) setTimeout(() => enviar(tentativa + 1), 400 * (tentativa + 1) + Math.random() * 500);
+    };
+    try { Promise.resolve(canal.track({ p: minha })).then((r) => { if (r !== "ok") refazer(); }, refazer); } catch (_) { refazer(); }
+  };
+  const agendar = () => {
+    if (timer) return;
+    timer = setTimeout(() => { timer = null; enviar(); }, 150);
+  };
+
+  canal.on("presence", { event: "sync" }, avisar);
+  const conectado = await new Promise((resolve) => {
+    const limite = setTimeout(() => resolve(false), 8000);
+    try {
+      canal.subscribe((estado) => {
+        if (estado === "SUBSCRIBED") {
+          clearTimeout(limite);
+          resolve(true);
+          if (Object.keys(minha).length) enviar(); /* reconectou: reenvia o que já era meu */
+        } else if (estado === "CHANNEL_ERROR" || estado === "TIMED_OUT") {
+          clearTimeout(limite);
+          resolve(false);
+        }
+      });
+    } catch (_) { clearTimeout(limite); resolve(false); }
+  });
+  if (!conectado) {
+    fechado = true;
+    try { Promise.resolve(clienteSupabase.removeChannel(canal)).catch(() => {}); } catch (_) {}
+    return null;
+  }
+
+  return {
+    kind: "room",
+    setPresence(p) { minha = p; avisar(); agendar(); },
+    subscribe(cb) { subs.add(cb); queueMicrotask(() => cb(retrato())); return () => subs.delete(cb); },
+    close() {
+      fechado = true;
+      clearTimeout(timer);
+      subs.clear();
+      try { Promise.resolve(clienteSupabase.removeChannel(canal)).catch(() => {}); } catch (_) {}
+    },
+  };
+}
+
+async function conectar(pin, barramento) {
+  if (barramento) return barramento.connect(pin);
+  return (await transporteSala(pin)) || (await transporteSupabase(pin)) || transporteAbas(pin);
+}
+
+const ROTULO_TRANSPORTE = {
+  connecting: "Conectando…",
+  room: "Tempo real entre aparelhos",
+  tabs: "Abas deste navegador",
+  local: "Ensaio nesta página",
+};
+
+function useTransporte(pin, barramento) {
+  const [t, setT] = useState(null);
+  const [status, setStatus] = useState("idle");
+  useEffect(() => {
+    if (!pin) return;
+    let morto = false, tr = null;
+    setStatus("connecting");
+    conectar(pin, barramento).then((x) => {
+      if (morto) { x.close(); return; }
+      tr = x;
+      setT(x);
+      setStatus(x.kind);
+    });
+    return () => { morto = true; if (tr) tr.close(); setT(null); };
+  }, [pin, barramento]);
+  return [t, status];
+}
+
+function usePares(t) {
+  const [pares, setPares] = useState([]);
+  useEffect(() => (t ? t.subscribe(setPares) : undefined), [t]);
+  return pares;
+}
+
+/* Mensagens recebidas são dados de terceiros: validar antes de usar. */
+function mensagemValida(m) {
+  return m && typeof m === "object" && typeof m.id === "string" && m.id.length <= 24 &&
+    typeof m.kid === "string" && m.kid.length <= 12 && Number.isInteger(m.L) && m.L > 0 && m.L <= 600 &&
+    Array.isArray(m.c) && m.c.length > 0 && m.c.length <= 600 && m.c.every((x) => typeof x === "string" && numeroDaSala(x));
+}
+
+/* ============================================================
+   Cálculo de chaves em Web Worker
+   O worker recebe o mesmo núcleo matemático (script #rsa-core) e responde
+   { id, chave } ou { id, falha }. Sem suporte a Worker, cai para setTimeout.
+   ============================================================ */
+let workerChaves = null;
+const pendentes = new Map();
+let proximoId = 1;
+
+function executarTarefa(t) {
+  if (t.tipo === "sortear") {
+    const p = primoAleatorio(t.bits);
+    let q;
+    do q = primoAleatorio(t.bits); while (q === p);
+    return montarChave(p, q, null);
+  }
+  return montarChave(t.p, t.q, t.e);
+}
+
+function obterWorker() {
+  if (workerChaves !== null) return workerChaves;
+  workerChaves = false;
+  try {
+    const nucleo = document.getElementById("rsa-core");
+    if (typeof Worker === "undefined" || !nucleo) return false;
+    const fonte = nucleo.textContent + "\n" + executarTarefa.toString() + `
+self.onmessage = (ev) => {
+  const { id, tarefa } = ev.data;
+  try { self.postMessage({ id, chave: executarTarefa(tarefa) }); }
+  catch (e) { self.postMessage({ id, falha: String(e && e.message || e) }); }
+};`;
+    const url = URL.createObjectURL(new Blob([fonte], { type: "text/javascript" }));
+    const w = new Worker(url);
+    w.onmessage = (ev) => {
+      const { id, chave, falha } = ev.data || {};
+      const pend = pendentes.get(id);
+      if (!pend) return;
+      pendentes.delete(id);
+      clearTimeout(pend.limite);
+      if (falha) pend.rejeitar(new Error(falha)); else pend.resolver(chave);
+    };
+    w.onerror = () => {
+      for (const [, pend] of pendentes) { clearTimeout(pend.limite); pend.usarFallback(); }
+      pendentes.clear();
+      workerChaves = false;
+    };
+    workerChaves = w;
+  } catch (_) { workerChaves = false; }
+  return workerChaves;
+}
+
+function calcularSemWorker(t) {
+  return new Promise((resolver, rejeitar) => {
+    /* Dois quadros de folga para o "Calculando…" aparecer antes da conta. */
+    setTimeout(() => { try { resolver(executarTarefa(t)); } catch (e) { rejeitar(e); } }, 30);
+  });
+}
+
+function calcularNoWorker(tarefa) {
+  const w = obterWorker();
+  if (!w) return calcularSemWorker(tarefa);
+  return new Promise((resolver, rejeitar) => {
+    const id = proximoId++;
+    const pend = {
+      resolver, rejeitar,
+      usarFallback: () => calcularSemWorker(tarefa).then(resolver, rejeitar),
+      limite: setTimeout(() => {
+        pendentes.delete(id);
+        rejeitar(new Error("O cálculo passou de 20 segundos e foi cancelado. Tente primos menores."));
+        try { w.terminate(); } catch (_) {}
+        workerChaves = null;
+        for (const [, outro] of pendentes) { clearTimeout(outro.limite); outro.usarFallback(); }
+        pendentes.clear();
+      }, 20000),
+    };
+    pendentes.set(id, pend);
+    w.postMessage({ id, tarefa });
+  });
+}
+
+/* Alerta didático: primos grandes (acima de 100 000) separados por menos de 10 000. */
+function primosProximos(p, q) {
+  const dif = p > q ? p - q : q - p;
+  const menor = p < q ? p : q;
+  return dif < 10000n && menor > 100000n;
+}
+
+/* ============================================================
+   Peças visuais
+   ============================================================ */
+const V = (s, cls = "") => html`<i className=${"mv " + cls}>${s}</i>`;
+
+/* φ(n) escrito com o valor de n: φ(3599). Dentro das contas repetidas do Euclides
+   (CompactoCtx), um n com mais de 12 dígitos volta a ser escrito como φ(n). */
+const NCtx = React.createContext(null);
+const CompactoCtx = React.createContext(false);
+function Phi({ n }) {
+  const nCtx = React.useContext(NCtx);
+  const compacto = React.useContext(CompactoCtx);
+  const v = n ?? nCtx;
+  const comValor = v != null && !(compacto && v.toString().length > 12);
+  return html`<span className="phi-not">${V("φ")}(${comValor ? html`<span className="phi-n">${agrupar(v)}</span>` : V("n")})</span>`;
+}
+
+/* Caracteres invisíveis ganham um símbolo para aparecer na tabela. */
+const visivel = (s) => s.replace(/ /g, "␣").replace(/\n/g, "↵").replace(/[\u0000-\u001f]/g, "\uFFFD");
+
+function Num({ v, tom = "", grande = false }) {
+  return html`<span className=${`num ${tom} ${grande ? "num-g" : ""}`}>${agrupar(v)}</span>`;
+}
+
+function Fichas({ itens, tom = "", max = 32, rotulo }) {
+  const vis = itens.slice(0, max);
+  return html`<div className="fichas" aria-label=${rotulo}>
+    ${vis.map((x, i) => html`<span key=${i} className=${"ficha " + tom}>${typeof x === "bigint" || typeof x === "number" ? agrupar(x) : x}</span>`)}
+    ${itens.length > max ? html`<span className="ficha mais">+${itens.length - max}</span>` : null}
+  </div>`;
+}
+
+function Chip({ tom = "", children }) {
+  return html`<span className=${"chip " + tom}>${children}</span>`;
+}
+
+function Barra({ titulo, status, onSair, direita }) {
+  return html`<header className="barra">
+    <div className="barra-in">
+      <button className="voltar" onClick=${onSair} aria-label="Voltar ao início">←</button>
+      <div className="marca"><span className="marca-rsa">RSA</span> <span className="marca-sala">Room</span></div>
+      <span className="barra-titulo">${titulo}</span>
+      ${status ? html`<${Chip} tom=${"st-" + status}><span className="ponto"></span>${ROTULO_TRANSPORTE[status] || status}<//>` : null}
+      <div className="barra-dir">${direita}</div>
+    </div>
+  </header>`;
+}
+
+/* ============================================================
+   ANFITRIÃO
+   ============================================================ */
+function Anfitriao({ barramento, pinInicial, ensaio = false, nomeInicial = "", onSair }) {
+  const [nome, setNome] = useState(() => limparNome(nomeInicial) || "Guardião");
+  const [pin] = useState(() => pinInicial || novoPin());
+  const [t, status] = useTransporte(pin, barramento);
+  const pares = usePares(t);
+
+  const [preset, setPreset] = useState("mini");
+  const [modo, setModo] = useState("sorteio");
+  const [pIn, setPIn] = useState("61");
+  const [qIn, setQIn] = useState("53");
+  const [chave, setChave] = useState(() => montarChave(61n, 53n, 17n));
+  const [erro, setErro] = useState("");
+  const [verD, setVerD] = useState(false);
+  const [verEuclides, setVerEuclides] = useState(false);
+  const [auto, setAuto] = useState(false);
+  const [recebidas, setRecebidas] = useState([]);
+  const vistas = useRef(new Set());
+
+  useEffect(() => {
+    if (!t) return;
+    t.setPresence({ role: "host", n: chave.n.toString(), e: chave.e.toString(), kid: chave.kid, nome });
+  }, [t, chave, nome]);
+
+  useEffect(() => {
+    const novas = [];
+    for (const p of pares) {
+      const pr = p.presence || {};
+      if (p.isMe || pr.role !== "emissor" || !Array.isArray(pr.msgs)) continue;
+      for (const m of pr.msgs) {
+        if (!mensagemValida(m)) continue;
+        const uid = p.id + ":" + m.id;
+        if (vistas.current.has(uid)) continue;
+        vistas.current.add(uid);
+        novas.push({ uid, nick: String(pr.nick || "Anônimo").slice(0, 20), id: m.id, kid: m.kid, L: m.L, c: m.c, chegou: Date.now() });
+      }
+    }
+    if (novas.length) setRecebidas((velhas) => [...novas.reverse(), ...velhas].slice(0, 80));
+  }, [pares]);
+
+  const emissores = pares.filter((p) => !p.isMe && p.presence?.role === "emissor");
+  const outrosAnfitrioes = pares.filter((p) => !p.isMe && p.presence?.role === "host");
+
+  /* Os cálculos de chave rodam fora da thread principal (Web Worker), com indicador de carregamento.
+     pedidoRef descarta respostas de pedidos antigos (ex.: o usuário digitou outro e no meio). */
+  const [calculando, setCalculando] = useState(false);
+  const pedidoRef = useRef(0);
+  async function calcular(tarefa, aoTerminar) {
+    const id = ++pedidoRef.current;
+    setCalculando(true);
+    try {
+      const k = await calcularNoWorker(tarefa);
+      if (id !== pedidoRef.current) return;
+      if (k.erro) { setErro(k.erro); return; }
+      setErro("");
+      setChave(k);
+      if (aoTerminar) aoTerminar(k);
+    } catch (falha) {
+      if (id === pedidoRef.current) setErro(falha && falha.message ? falha.message : "Não foi possível calcular as chaves.");
+    } finally {
+      if (id === pedidoRef.current) setCalculando(false);
+    }
+  }
+
+  function sortear(id = preset) {
+    const bits = PRESETS.find((x) => x.id === id).bits;
+    calcular({ tipo: "sortear", bits }, (k) => { setPIn(k.p.toString()); setQIn(k.q.toString()); });
+  }
+
+  function aplicarManual(ev) {
+    ev.preventDefault();
+    const [ps, qs] = [pIn.trim(), qIn.trim()];
+    if (!soDigitos(ps) || !soDigitos(qs)) { setErro("Digite p e q como inteiros positivos (até 60 dígitos)."); return; }
+    calcular({ tipo: "montar", p: BigInt(ps), q: BigInt(qs), e: null });
+  }
+
+  function trocarE(eNovo) {
+    calcular({ tipo: "montar", p: chave.p, q: chave.q, e: eNovo });
+  }
+
+  const est = estimativaFatoracao(chave.n);
+  const bitsN = bitLen(chave.n);
+  const medidor = Math.min(100, (bitsN / 2048) * 100);
+
+  return html`<div className="tela">
+    ${ensaio ? null : html`<${Barra} titulo=${nome + " (Guardião)"} status=${status} onSair=${onSair} direita=${html`<span className="pin-mini">PIN <b>${pin}</b></span>`} />`}
+    <div className=${ensaio ? "host host-ensaio" : "wrap host"}>
+      ${ensaio ? html`<div className="rotulo-painel"><span>Tela de ${nome} (Guardião)</span><${Chip} tom="st-local"><span className="ponto"></span>${ROTULO_TRANSPORTE.local}<//></div>` : null}
+      <div className="host-grid">
+        <section className=${"painel chaves " + (calculando ? "calculando" : "")} aria-labelledby="h-chaves" aria-busy=${calculando}>
+          ${calculando ? html`<div className="carregando-chaves" role="status"><span className="giro" aria-hidden="true"></span>Calculando chaves seguras...</div>` : null}
+          <div className="painel-cab">
+            <h2 id="h-chaves">Geração das chaves</h2>
+            <div className="segmentado" role="tablist" aria-label="Origem dos primos">
+              <button role="tab" aria-selected=${modo === "sorteio"} className=${modo === "sorteio" ? "on" : ""} onClick=${() => setModo("sorteio")}>Sortear</button>
+              <button role="tab" aria-selected=${modo === "manual"} className=${modo === "manual" ? "on" : ""} onClick=${() => setModo("manual")}>Digitar p, q</button>
+            </div>
+          </div>
+
+          ${modo === "sorteio"
+            ? html`<div className="presets">
+                ${PRESETS.map((x) => html`<button key=${x.id} className=${"preset " + (preset === x.id ? "on" : "")} onClick=${() => { setPreset(x.id); sortear(x.id); }}>
+                  <b>${x.nome}</b><small>${x.nota}</small>
+                </button>`)}
+                <button className="btn btn-sec" onClick=${() => sortear()}>Sortear de novo</button>
+              </div>`
+            : html`<form className="manual-bloco" onSubmit=${aplicarManual}>
+                <div className="ajuda-pq">
+                  <b>Que números posso digitar?</b>
+                  <ul>
+                    <li><b>${V("p")} deve ser primo e ${V("q")} deve ser primo</b>: divisíveis só por 1 e por eles mesmos. Exemplos: 53, 61, 97, 101, 7919.</li>
+                    <li>${V("p")} e ${V("q")} precisam ser diferentes.</li>
+                    <li>O produto ${V("n")} = ${V("p")}·${V("q")} precisa passar de 255, para caber pelo menos uma letra (1 byte) em cada bloco. Por isso 11 e 13 não servem: 11·13 = 143.</li>
+                    <li>Inteiros positivos com até 60 dígitos. Quanto maiores os primos, mais difícil o trabalho do hacker.</li>
+                  </ul>
+                </div>
+                <div className="manual">
+                  <${CampoPrimo} id="in-p" nome="p" valor=${pIn} onMudar=${setPIn} />
+                  <${CampoPrimo} id="in-q" nome="q" valor=${qIn} onMudar=${setQIn} />
+                  <button className="btn" type="submit">Calcular chaves</button>
+                </div>
+                ${pIn.trim() && pIn.trim() === qIn.trim() ? html`<p className="aviso">${V("p")} e ${V("q")} estão iguais. Escolha dois primos diferentes.</p>` : null}
+                <p className="passo-n">O expoente ${V("e")} é escolhido automaticamente; depois você pode trocá-lo no passo 4.</p>
+              </form>`}
+          ${erro ? html`<p className="erro" role="alert">${erro}</p>` : null}
+
+          <${NCtx.Provider} value=${chave.n}>
+          <ol className="passos">
+            <li>
+              <div className="passo-t">Primos ${V("p")} e ${V("q")}</div>
+              <div className="passo-v">${V("p")} = <${Num} v=${chave.p} /> <span className="sep">·</span> ${V("q")} = <${Num} v=${chave.q} /></div>
+              <div className="passo-n">Ambos passam no teste de Miller–Rabin.</div>
+              ${primosProximos(chave.p, chave.q) ? html`<p className="alerta-fermat" role="note">⚠️ Primos muito próximos. Na vida real, o Método de Fermat descobriria ${V("p")} e ${V("q")} quase instantaneamente a partir da raiz quadrada de ${V("n")}. Para segurança real, ${V("p")} e ${V("q")} devem ser enormes e distantes. <span className="af-dif">|${V("p")} − ${V("q")}| = ${agrupar(chave.p > chave.q ? chave.p - chave.q : chave.q - chave.p)}</span></p>` : null}
+            </li>
+            <li>
+              <div className="passo-t">Módulo ${V("n")} = ${V("p")}·${V("q")}</div>
+              <div className="passo-v">${V("n")} = <${Num} v=${chave.n} tom="pub" /></div>
+              <div className="passo-n">${bitsN} bits · ${chave.n.toString().length} dígitos · ${chave.k} byte${chave.k > 1 ? "s" : ""} por bloco</div>
+            </li>
+            <li>
+              <div className="passo-t">Totiente de Euler ${V("φ")}(${V("n")})</div>
+              <div className="passo-v"><${Phi} /> = (${V("p")} − 1)(${V("q")} − 1) = (${agrupar(chave.p)} − 1)(${agrupar(chave.q)} − 1) = ${agrupar(chave.p - 1n)} · ${agrupar(chave.q - 1n)} = <${Num} v=${chave.phi} /></div>
+            </li>
+            <li>
+              <div className="passo-t">Expoente público ${V("e")}</div>
+              ${ensaio
+                ? html`<div className="passo-v">${V("e")} = <${Num} v=${chave.e} tom="pub" /></div>
+                    <details className="teoria editor-recolhido">
+                      <summary>Editar ${V("e")}</summary>
+                      <${EditorE} chave=${chave} onTrocar=${trocarE} />
+                    </details>`
+                : html`<${EditorE} chave=${chave} onTrocar=${trocarE} />`}
+              <${TeoriaE} chave=${chave} aberto=${!ensaio} />
+            </li>
+            <li>
+              <div className="passo-t">Inverso modular ${V("d")} ≡ ${V("e")}<sup>−1</sup> (mod <${Phi} />)</div>
+              ${verD
+                ? html`<div className="passo-v">${V("d")} = <${Num} v=${chave.d} tom="priv" /> <span className="etiqueta et-priv">Chave Mestra 🗝️</span></div>
+                    <div className="passo-n">Conferência: ${V("e")}·${V("d")} mod <${Phi} /> = ${((chave.e * chave.d) % chave.phi).toString()} ✓</div>`
+                : html`<div className="oculto">
+                    <span>${V("d")} = •••••• <span className="etiqueta et-priv">Chave Mestra 🗝️</span></span>
+                    <span className="passo-n">Oculto para você poder projetar esta tela sem expor a chave privada.</span>
+                  </div>`}
+              <div className="acoes-d">
+                <button className="btn-link" aria-pressed=${verD} onClick=${() => setVerD(!verD)}>${verD ? "Ocultar chave d" : "Revelar chave d"}</button>
+                <button className="btn-acordeao" aria-expanded=${verEuclides} aria-controls="euclides-painel" onClick=${() => setVerEuclides(!verEuclides)}>
+                  Ver passo a passo do Algoritmo de Euclides <span aria-hidden="true">${verEuclides ? "▲" : "▼"}</span>
+                </button>
+              </div>
+              ${verEuclides ? html`<${ExplicacaoEuclides} chave=${chave} dOculto=${!verD} />` : null}
+              <${ProvaEuler} chave=${chave} verD=${verD} />
+            </li>
+          </ol>
+          <//>
+
+          <div className="chaves-par">
+            <div className="cartao-chave pub">
+              <div className="ck-cab"><span className="ck-rot">Chave pública</span><span className="etiqueta et-pub">Cadeado Público 🔓</span></div>
+              <span className="ck-val">(${V("e")}, ${V("n")}) = (${agrupar(chave.e)}, ${agrupar(chave.n)})</span>
+            </div>
+            <div className="cartao-chave priv">
+              <div className="ck-cab"><span className="ck-rot">Chave privada</span><span className="etiqueta et-priv">Chave Mestra 🗝️</span></div>
+              <span className="ck-val">(${V("d")}, ${V("n")}) = (${verD ? agrupar(chave.d) : "••••"}, ${agrupar(chave.n)})</span>
+            </div>
+          </div>
+
+          <div className="seguranca">
+            <div className="seg-cab"><span>Força contra fatoração</span><b>${bitsN} de 2048 bits</b></div>
+            <div className="seg-trilho"><div className="seg-barra" style=${{ width: Math.max(1.2, medidor) + "%" }}></div></div>
+            <p className="passo-n">Divisão por tentativas até √${V("n")}: cerca de 10<sup>${Math.round(est.testesLog10)}</sup> testes, ${formatarDuracao(est.segundos)} neste navegador. RSA real usa ${V("n")} com 2048 bits: cerca de 10<sup>308</sup> testes.</p>
+          </div>
+        </section>
+
+        <section className="painel projecao" aria-labelledby="h-proj">
+          <div className="pin-bloco">
+            <${NomeEditavel} nome=${nome} onSalvar=${(n) => { setNome(n); if (!ensaio) lembrarNome(n); }} />
+            <div className="pin-topo">
+              <div className="pin-txt">
+                <span className="pin-rot">PIN da sala</span>
+                <span className="pin-num">${pin.slice(0, 3)}<span className="pin-esp"></span>${pin.slice(3)}</span>
+                <span className="pin-instr">${ensaio ? html`Abra o RSA Room, toque em <b>Participante</b> e digite este PIN.` : html`Aponte a câmera para o QR Code, ou abra o RSA Room, toque em <b>Participante</b> e digite este PIN.`}</span>
+              </div>
+              ${ensaio ? null : html`<${QrSala} link=${linkSala(pin)} />`}
+            </div>
+            ${ensaio ? null : html`<${LinkDireto} pin=${pin} />`}
+            ${!ensaio && status === "tabs" ? html`<p className="pin-aviso">A sala em tempo real não conectou: por enquanto, só abas deste navegador entram nela. Confira o arquivo config.js (URL e chave do Supabase) e a internet.</p>` : null}
+          </div>
+          ${outrosAnfitrioes.length ? html`<p className="erro">Outro anfitrião também está usando este PIN. Volte ao início e crie uma sala nova.</p>` : null}
+          <div className="proj-chave">
+            <div className="ck-cab"><span className="ck-rot">Chave pública para cifrar</span><span className="etiqueta et-pub">Cadeado Público 🔓</span></div>
+            <div className="proj-par">
+              <div><span className="proj-var">${V("e")} =</span> <${Num} v=${chave.e} tom="pub" grande /></div>
+              <div><span className="proj-var">${V("n")} =</span> <${Num} v=${chave.n} tom="pub" grande /></div>
+            </div>
+            <span className="formula">${V("c")} = ${V("m")}<sup>${V("e")}</sup> mod ${V("n")}</span>
+          </div>
+
+          <div className="participantes">
+            <h2 id="h-proj">Participantes <span className="contagem">${emissores.length}</span></h2>
+            ${emissores.length
+              ? html`<div className="nomes">${emissores.map((p) => html`<span key=${p.id} className="nome">${String(p.presence.nick || "Anônimo").slice(0, 20)}</span>`)}</div>`
+              : html`<p className="vazio">Ninguém entrou ainda. ${status === "tabs" ? "Neste modo, abra o participante em outra aba deste navegador." : "Compartilhe o PIN com a turma."}</p>`}
+            <p className="aviso-via"><b>Aviso:</b> A via pública de comunicação não é monitorada. Qualquer agente pode capturar os pacotes cifrados sem o conhecimento do anfitrião.</p>
+          </div>
+
+          <div className="feed-cab">
+            <h2>Mensagens recebidas <span className="contagem">${recebidas.length}</span></h2>
+            <label className="alternar" htmlFor=${"auto-" + pin}>
+              <input id=${"auto-" + pin} type="checkbox" checked=${auto} onChange=${(e) => setAuto(e.target.checked)} />
+              Decifrar ao chegar
+            </label>
+          </div>
+          <div className="feed">
+            ${recebidas.length
+              ? recebidas.map((m) => html`<${MensagemHost} key=${m.uid} m=${m} chave=${chave} auto=${auto} />`)
+              : html`<div className="vazio-feed">
+                  <span className="formula grande">${V("m")} = ${V("c")}<sup>${V("d")}</sup> mod ${V("n")}</span>
+                  <p>As cifras aparecem aqui assim que alguém enviar. Só esta tela tem ${V("d")} para decifrá-las.</p>
+                </div>`}
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Euclides estendido — modo didático (substituição simbólica) e modo tabela
+   ============================================================ */
+const PHI = html`<span className="sym sym-phi"><${Phi} /></span>`; /* lê n do NCtx */
+const SYM_E = html`<span className="sym sym-e">${V("e")}</span>`;
+const MENOS = "−";
+const absB = (c) => (c < 0n ? -c : c);
+
+/* Um termo c·φ(n) ou c·e, colorido pelo símbolo. "nu" escreve só "e" quando c = 1. */
+function Termo({ c, sym, primeiro = false, nu = false }) {
+  const neg = c < 0n;
+  const corpo = nu && absB(c) === 1n ? "" : agrupar(absB(c)) + "·";
+  return html`${primeiro ? null : html`<span className="op">${neg ? MENOS : "+"}</span>`}<span className=${"termo termo-" + sym}>${primeiro && neg ? MENOS : ""}${corpo}${sym === "phi" ? PHI : SYM_E}</span>`;
+}
+
+/* s·φ(n) + t·e, omitindo termos nulos. */
+function Combinacao({ s, t }) {
+  const termos = [];
+  if (s !== 0n) termos.push({ c: s, sym: "phi" });
+  if (t !== 0n) termos.push({ c: t, sym: "e" });
+  if (!termos.length) return html`<span>0</span>`;
+  return html`${termos.map((x, i) => html`<${Termo} key=${i} c=${x.c} sym=${x.sym} primeiro=${i === 0} />`)}`;
+}
+
+const RotResto = ({ v }) => html`<span className="resto">Resto ${agrupar(v)}</span>`;
+
+/* Como um operando aparece na Fase 1 (só o nome) e na Fase 2 (já em φ(n) e e). */
+function NomeItem({ it }) {
+  if (it.tipo === "phi") return PHI;
+  if (it.tipo === "e") return SYM_E;
+  return html`(<${RotResto} v=${it.v} />)`;
+}
+function ExprItem({ it }) {
+  if (it.tipo === "phi") return PHI;
+  if (it.tipo === "e") return SYM_E;
+  return html`<span className="par">(</span><${Combinacao} s=${it.s} t=${it.t} /><span className="par">)</span>`;
+}
+
+/* Lista de coeficientes de um mesmo símbolo: (1 + 3) ou (−150 − 451). */
+function Grupo({ coefs, sym }) {
+  const partes = coefs.map((c, i) => (i === 0 ? (c < 0n ? MENOS : "") + agrupar(absB(c)) : ` ${c < 0n ? MENOS : "+"} ${agrupar(absB(c))}`)).join("");
+  const texto = coefs.length > 1 ? `(${partes})` : partes;
+  return html`<span className=${"termo termo-" + sym}>${texto}·${sym === "phi" ? PHI : SYM_E}</span>`;
+}
+
+function termosDistribuidos(p) {
+  const lista = [];
+  if (p.A.tipo === "e") lista.push({ c: 1n, sym: "e", nu: true });
+  else {
+    if (p.A.s !== 0n) lista.push({ c: p.A.s, sym: "phi" });
+    if (p.A.t !== 0n) lista.push({ c: p.A.t, sym: "e" });
+  }
+  const sB = -p.q * p.B.s, tB = -p.q * p.B.t;
+  if (sB !== 0n) lista.push({ c: sB, sym: "phi" });
+  if (tB !== 0n) lista.push({ c: tB, sym: "e" });
+  return lista;
+}
+
+function PassoVolta({ p, i, bezout }) {
+  const r = p.r;
+  const titulo = html`<span className="volta-t">Passo ${i + 1} <span className="volta-sub">(${bezout ? html`Resto 1 / Equação de Bézout` : html`Resto ${agrupar(r)}`})</span></span>`;
+  const lado = bezout ? html`<span className="um">1</span>` : html`<${RotResto} v=${r} />`;
+  if (i === 0) {
+    return html`<li className=${"volta " + (bezout ? "bezout" : "")}>
+      ${titulo}
+      <div className="eq">${lado}<span className="op">=</span><${Combinacao} s=${p.novo.s} t=${p.novo.t} /></div>
+      <p className="passo-n">Vem direto da primeira divisão: <${Phi} /> aparece uma vez e ${V("e")} aparece ${agrupar(p.q)} vezes.</p>
+    </li>`;
+  }
+  const dist = termosDistribuidos(p);
+  const coefPhi = dist.filter((x) => x.sym === "phi").map((x) => x.c);
+  const coefE = dist.filter((x) => x.sym === "e").map((x) => x.c);
+  const subst = p.A.tipo === "e" ? html`a expressão do Resto ${agrupar(p.B.v)}` : html`os Restos ${agrupar(p.A.v)} e ${agrupar(p.B.v)}`;
+  return html`<li className=${"volta " + (bezout ? "bezout" : "")}>
+    ${titulo}
+    <div className="eq-bloco">
+      <div className="eq"><span className="eq-rot">substituindo</span>${lado}<span className="op">=</span><${ExprItem} it=${p.A} /><span className="op">${MENOS}</span><span className="coef">${agrupar(p.q)}</span>·<${ExprItem} it=${p.B} /></div>
+      <div className="eq"><span className="eq-rot">distribuindo ${MENOS}${agrupar(p.q)}</span><span className="op">=</span>${dist.map((x, k) => html`<${Termo} key=${k} c=${x.c} sym=${x.sym} nu=${x.nu} primeiro=${k === 0} />`)}</div>
+      <div className="eq"><span className="eq-rot">agrupando</span><span className="op">=</span>${coefPhi.length ? html`<${Grupo} coefs=${coefPhi} sym="phi" />` : null}${coefPhi.length && coefE.length ? html`<span className="op">+</span>` : null}${coefE.length ? html`<${Grupo} coefs=${coefE} sym="e" />` : null}</div>
+      <div className="eq eq-final"><span className="eq-rot">resultado</span>${lado}<span className="op">=</span><${Combinacao} s=${p.novo.s} t=${p.novo.t} /></div>
+    </div>
+    <p className="passo-n">Substituímos ${subst} na equação ${bezout ? "do 1" : html`do Resto ${agrupar(r)}`}, distribuímos o ${MENOS}${agrupar(p.q)} e juntamos os termos de <${Phi} /> e de ${V("e")}.</p>
+  </li>`;
+}
+
+/* Mostra os primeiros e os últimos passos quando a conta é longa. */
+function recortar(lista, todos) {
+  if (todos || lista.length <= 6) return { vis: lista.map((x, i) => [x, i]), oculto: 0 };
+  const vis = [...lista.slice(0, 2).map((x, i) => [x, i]), null, ...lista.slice(-2).map((x, i) => [x, lista.length - 2 + i])];
+  return { vis, oculto: lista.length - 4 };
+}
+
+function ModoDidatico({ chave }) {
+  const ex = useMemo(() => euclidesSimbolico(chave.phi, chave.e), [chave]);
+  const [todos, setTodos] = useState(false);
+  const { passos, final, x, y } = ex;
+  const ida = recortar(passos, todos);
+  const volta = recortar(passos, todos);
+  const yNeg = y < 0n;
+  const dCalc = yNeg ? y + chave.phi : y;
+  const produto = chave.e * chave.d;
+  const Lacuna = ({ n }) => html`<li className="lacuna"><button className="btn-link" onClick=${() => setTodos(true)}>Mostrar os ${n} passos intermediários</button></li>`;
+
+  return html`<div className="didatico">
+    <section className="fase">
+      <h4><span className="fase-num">Fase 1</span> Ida: divisões sucessivas e restos isolados</h4>
+      <p className="passo-n">Dividimos <${Phi} /> = ${agrupar(chave.phi)} por ${V("e")} = ${agrupar(chave.e)}, depois o divisor pelo resto, até o resto zerar. Em cada linha isolamos o resto.</p>
+      <ol className="ida">
+        ${ida.vis.map((item, k) => {
+          if (!item) return html`<${Lacuna} key="lacuna" n=${ida.oculto} />`;
+          const [p] = item;
+          return html`<li key=${k}>
+            <span className="div-num">${agrupar(p.A.v)} = ${agrupar(p.q)} · ${agrupar(p.B.v)} + ${agrupar(p.r)}</span>
+            <span className="eq"><${RotResto} v=${p.r} /><span className="op">=</span><${NomeItem} it=${p.A} /><span className="op">${MENOS}</span><span className="coef">${agrupar(p.q)}</span>·<${NomeItem} it=${p.B} /></span>
+          </li>`;
+        })}
+        <li className="ida-fim">
+          <span className="div-num">${agrupar(final.A.v)} = ${agrupar(final.q)} · ${agrupar(final.B.v)} + 0</span>
+          <span className="passo-n">O resto zerou. O último resto não nulo é mdc(<${Phi} />, ${V("e")}) = 1, então ${V("e")} tem inverso.</span>
+        </li>
+      </ol>
+    </section>
+
+    <section className="fase">
+      <h4><span className="fase-num">Fase 2</span> Volta: cada resto escrito com <${Phi} /> e ${V("e")}</h4>
+      <p className="passo-n">Reescrevemos os restos na ordem em que surgiram. Cada um vira uma combinação de <span className="sym sym-phi"><${Phi} /></span> e <span className="sym sym-e">${V("e")}</span>, então o resto seguinte só precisa de substituição e agrupamento.</p>
+      <ol className="voltas">
+        ${volta.vis.map((item) => {
+          if (!item) return html`<${Lacuna} key="lacuna" n=${volta.oculto} />`;
+          const [p, i] = item;
+          return html`<${PassoVolta} key=${i} p=${p} i=${i} bezout=${i === passos.length - 1} />`;
+        })}
+      </ol>
+      ${todos && passos.length > 6 ? html`<button className="btn-link" onClick=${() => setTodos(false)}>Resumir passos</button>` : null}
+    </section>
+
+    <section className="fase">
+      <h4><span className="fase-num">Fase 3</span> Ajuste modular final</h4>
+      <div className="eq eq-destaque"><span className="um">1</span><span className="op">=</span><${Combinacao} s=${x} t=${y} /></div>
+      <ol className="ajuste">
+        <li>
+          <span>Aplicar mod <${Phi} />: o termo <${Termo} c=${x} sym="phi" primeiro=${true} /> é múltiplo de <${Phi} /> e vale 0.</span>
+          <div className="eq"><span className="seta">⟹</span><span className="um">1</span><span className="op">≡</span><${Termo} c=${y} sym="e" primeiro=${true} /><span className="mod">(mod <${Phi} />)</span></div>
+        </li>
+        <li>
+          ${yNeg
+            ? html`<span>Como ${V("y")} = ${MENOS}${agrupar(-y)}${" < "}0, somamos o módulo para obter um representante positivo:</span>
+                <div className="eq"><span className="d-sym">${V("d")}</span><span className="op">=</span>${MENOS}${agrupar(-y)}<span className="op">+</span>${PHI}<span className="op">=</span>${MENOS}${agrupar(-y)}<span className="op">+</span>${agrupar(chave.phi)}<span className="op">=</span><span className="d-val">${agrupar(dCalc)}</span></div>`
+            : html`<span>Como ${V("y")} = ${agrupar(y)} já é positivo e menor que <${Phi} />, ele é a chave privada:</span>
+                <div className="eq"><span className="d-sym">${V("d")}</span><span className="op">=</span><span className="d-val">${agrupar(dCalc)}</span></div>`}
+        </li>
+        <li>
+          <span>Conferência:</span>
+          <div className="eq">${SYM_E}·${V("d")}<span className="op">=</span>${agrupar(chave.e)} · ${agrupar(chave.d)}<span className="op">=</span>${agrupar(produto)}<span className="op">=</span>${agrupar(produto / chave.phi)} · ${agrupar(chave.phi)} + ${agrupar(produto % chave.phi)} ✓</div>
+        </li>
+      </ol>
+    </section>
+  </div>`;
+}
+
+function ModoTabela({ chave }) {
+  return html`<div>
+    <p className="passo-n">Cada linha satisfaz ${V("r")}<sub>i</sub> ≡ ${V("t")}<sub>i</sub>·${V("e")} (mod <${Phi} />). Quando ${V("r")}<sub>i</sub> = 1, ${V("t")}<sub>i</sub> é o inverso.</p>
+    <div className="tabela-rolagem tabela-inteira">
+      <table>
+        <thead><tr><th>i</th><th>${V("r")}<sub>i</sub></th><th>${V("q")}<sub>i</sub></th><th>${V("t")}<sub>i</sub></th></tr></thead>
+        <tbody>${chave.inv.linhas.map((l, i) => html`<tr key=${i} className=${l.r === 1n ? "alvo" : ""}>
+          <td>${i}</td><td>${agrupar(l.r)}</td><td>${l.q === null ? "" : agrupar(l.q)}</td><td>${agrupar(l.t)}</td>
+        </tr>`)}</tbody>
+      </table>
+    </div>
+    <p className="passo-n">${V("d")} = ${V("t")} mod <${Phi} /> = ${agrupar(chave.inv.tBruto)} mod ${agrupar(chave.phi)} = ${agrupar(chave.d)}</p>
+  </div>`;
+}
+
+function ExplicacaoEuclides({ chave, dOculto = false }) {
+  const [modo, setModo] = useState("didatico");
+  const nLongo = chave.n.toString().length > 12;
+  return html`<${CompactoCtx.Provider} value=${true}><div className="euclides euclides-painel" id="euclides-painel">
+    ${dOculto ? html`<p className="aviso-d">Atenção: o fim do passo a passo calcula ${V("d")}. Se esta tela estiver no projetor, a turma verá a chave privada.</p>` : null}
+    <div className="contexto">
+      <span className="ctx-rot">Contexto</span>
+      <span>${V("n")} = ${agrupar(chave.n)}</span>
+      <span className="ctx-sep" aria-hidden="true">|</span>
+      <span><${Phi} n=${chave.n} /> = ${agrupar(chave.phi)}</span>
+      <span className="ctx-sep" aria-hidden="true">|</span>
+      <span>${V("e")} = ${agrupar(chave.e)}</span>
+      ${nLongo ? html`<span className="ctx-nota">Como ${V("n")} é longo, as contas abaixo escrevem ${V("φ")}(${V("n")}) em vez de repetir o valor.</span>` : null}
+    </div>
+    <div className="segmentado modo-euclides" role="tablist" aria-label="Forma da explicação">
+      <button role="tab" aria-selected=${modo === "didatico"} className=${modo === "didatico" ? "on" : ""} onClick=${() => setModo("didatico")}>Modo didático (passo a passo simbólico)</button>
+      <button role="tab" aria-selected=${modo === "tabela"} className=${modo === "tabela" ? "on" : ""} onClick=${() => setModo("tabela")}>Modo tabela técnica</button>
+    </div>
+    ${modo === "didatico" ? html`<${ModoDidatico} chave=${chave} />` : html`<${ModoTabela} chave=${chave} />`}
+  </div><//>`;
+}
+
+/* ============================================================
+   Campos do painel de chaves: p, q e o expoente e
+   ============================================================ */
+function CampoPrimo({ id, nome, valor, onMudar }) {
+  const v = valor.trim();
+  const estado = !v ? null : !soDigitos(v) ? "formato" : ehPrimo(BigInt(v)) ? "primo" : "composto";
+  return html`<label htmlFor=${id} className="campo-primo">
+    <span className="cp-nome">${V(nome)}</span>
+    <input id=${id} inputMode="numeric" autoComplete="off" value=${valor} onChange=${(e) => onMudar(e.target.value.replace(/[^\d]/g, "").slice(0, 60))} aria-describedby=${id + "-st"} />
+    <span id=${id + "-st"} className=${"cp-st " + (estado || "")}>${estado === "primo" ? "✓ primo" : estado === "composto" ? "✗ não é primo" : estado === "formato" ? "só números" : ""}</span>
+  </label>`;
+}
+
+function EditorE({ chave, onTrocar }) {
+  const [txt, setTxt] = useState(chave.e.toString());
+  useEffect(() => { setTxt(chave.e.toString()); }, [chave.e, chave.phi]);
+  const val = validarE(txt, chave.phi);
+  const menores = useMemo(() => menoresEValidos(chave.phi, 5), [chave.phi]);
+  const usa65537 = 65537n < chave.phi && gcd(65537n, chave.phi) === 1n;
+
+  function mudar(v) {
+    const limpo = v.replace(/[^\d]/g, "").slice(0, 60);
+    setTxt(limpo);
+    const r = validarE(limpo, chave.phi);
+    if (r.estado === "ok" && r.e !== chave.e) onTrocar(r.e);
+  }
+  function usar(e) { setTxt(e.toString()); if (e !== chave.e) onTrocar(e); }
+
+  let msg = null;
+  if (val.estado === "ok") msg = html`<p className="e-ok" role="status">✓ Válido: 1${" < "}${V("e")}${" < "}<${Phi} /> e mdc(${V("e")}, <${Phi} />) = 1. O ${V("d")} e as fases de Euclides já foram recalculados.</p>`;
+  else if (val.estado === "mdc") msg = html`<p className="e-erro" role="alert"><b>Inválido:</b> mdc(${V("e")}, <${Phi} />) = ${agrupar(val.g)}. O expoente ${V("e")} precisa ser coprimo com <${Phi} /> para ter inverso modular. (${agrupar(val.e)} e ${agrupar(chave.phi)} são ambos múltiplos de ${agrupar(val.g)}.)</p>`;
+  else if (val.estado === "intervalo") msg = html`<p className="e-erro" role="alert"><b>Fora do intervalo:</b> ${V("e")} precisa ficar entre 2 e ${agrupar(chave.phi - 1n)}, ou seja, 1${" < "}${V("e")}${" < "}<${Phi} />.</p>`;
+  else msg = html`<p className="passo-n">Digite um número inteiro.</p>`;
+
+  return html`<div className="editor-e">
+    <div className="editor-linha">
+      <label htmlFor="in-e-host" className="editor-rot">${V("e")} =</label>
+      <input id="in-e-host" className=${"in-e " + (val.estado === "ok" ? "ok" : val.estado === "vazio" || val.estado === "formato" ? "" : "erro")} inputMode="numeric" autoComplete="off" value=${txt} onChange=${(e) => mudar(e.target.value)} aria-describedby="in-e-host-msg" />
+    </div>
+    <div id="in-e-host-msg">${msg}</div>
+    ${val.estado !== "ok" && val.estado !== "vazio" ? html`<p className="passo-n">Enquanto isso, as contas abaixo continuam com ${V("e")} = ${agrupar(chave.e)}, o último valor válido.</p>` : null}
+    <div className="atalhos-e">
+      <button type="button" className="btn btn-sec" onClick=${() => usar(eAleatorio(chave.phi))}>Sortear ${V("e")} automático</button>
+      <span className="atalhos-rot">Menores válidos:</span>
+      ${menores.map((x) => html`<button type="button" key=${x.toString()} className=${"chip-e " + (x === chave.e ? "on" : "")} onClick=${() => usar(x)}>${agrupar(x)}</button>`)}
+      ${usa65537 ? html`<button type="button" className=${"chip-e " + (chave.e === 65537n ? "on" : "")} onClick=${() => usar(65537n)}>65537 <small>padrão</small></button>` : null}
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Síntese das fórmulas e prova de corretude
+   ============================================================ */
+function SinteseFormulas() {
+  return html`<div className="sintese" role="group" aria-label="Fórmulas do RSA">
+    <div className="sint sint-pub">
+      <span className="sint-rot">Cifrar <small>(público)</small></span>
+      <span className="sint-eq">${V("c")} = ${V("m")}<sup>${V("e")}</sup> mod ${V("n")}</span>
+    </div>
+    <div className="sint sint-priv">
+      <span className="sint-rot">Decifrar <small>(privado)</small></span>
+      <span className="sint-eq">${V("m")} = ${V("c")}<sup>${V("d")}</sup> mod ${V("n")}</span>
+    </div>
+  </div>`;
+}
+
+function ProvaEuler({ chave, verD }) {
+  const ed = chave.e * chave.d;
+  const k = (ed - 1n) / chave.phi;
+  const PHIs = html`<${Phi} />`;
+  return html`<details className="prova">
+    <summary>Por que (${V("m")}<sup>${V("e")}</sup>)<sup>${V("d")}</sup> mod ${V("n")} volta a ser ${V("m")}? (Prova Matemática)</summary>
+    <ol className="prova-passos">
+      <li>
+        <span className="prova-t">Substituição da cifra</span>
+        <div className="prova-eq">${V("c")}<sup>${V("d")}</sup> ≡ (${V("m")}<sup>${V("e")}</sup>)<sup>${V("d")}</sup> ≡ ${V("m")}<sup>${V("e")}·${V("d")}</sup> (mod ${V("n")})</div>
+      </li>
+      <li>
+        <span className="prova-t">Relação com o Totiente de Euler</span>
+        <p>Como ${V("e")}·${V("d")} ≡ 1 (mod ${PHIs}), existe um inteiro ${V("k")} tal que</p>
+        <div className="prova-eq">${V("e")}·${V("d")} = ${V("k")}·${PHIs} + 1</div>
+        <p className="passo-n">Nesta chave: ${verD
+          ? html`${agrupar(chave.e)} · ${agrupar(chave.d)} = ${agrupar(ed)} = ${agrupar(k)} · ${agrupar(chave.phi)} + 1, ou seja, ${V("k")} = ${agrupar(k)}.`
+          : html`revele ${V("d")} para ver o valor de ${V("k")}.`}</p>
+      </li>
+      <li>
+        <span className="prova-t">Propriedades de potência</span>
+        <div className="prova-eq">${V("m")}<sup>${V("e")}·${V("d")}</sup> = ${V("m")}<sup>${V("k")}·${V("φ")}(${V("n")}) + 1</sup> = (${V("m")}<sup>${V("φ")}(${V("n")})</sup>)<sup>${V("k")}</sup> · ${V("m")}<sup>1</sup></div>
+      </li>
+      <li>
+        <span className="prova-t">Teorema de Euler: ${V("m")}<sup>${V("φ")}(${V("n")})</sup> ≡ 1 (mod ${V("n")})</span>
+        <div className="prova-eq">(1)<sup>${V("k")}</sup> · ${V("m")}<sup>1</sup> ≡ 1 · ${V("m")} ≡ ${V("m")} (mod ${V("n")})</div>
+      </li>
+    </ol>
+    <p className="prova-nota">Essa identidade garante que a mensagem cifrada ${V("c")} elevada à chave privada ${V("d")} recupera exatamente o valor original de ${V("m")}.</p>
+  </details>`;
+}
+
+/* ============================================================
+   Teoria do expoente público e
+   ============================================================ */
+const PRIMOS_FERMAT = { 3: "2¹ + 1", 5: "2² + 1", 17: "2⁴ + 1", 257: "2⁸ + 1", 65537: "2¹⁶ + 1" };
+
+function binarioAgrupado(x) {
+  const s = x.toString(2);
+  return s.replace(/\B(?=(\d{4})+(?!\d))/g, " ");
+}
+
+function TeoriaE({ chave, aberto = true }) {
+  const validos = useMemo(() => contarEValidos(chave.phi), [chave.phi]);
+  const quadrados = bitLen(chave.e) - 1;
+  const mults = popcount(chave.e) - 1;
+  const fermat = PRIMOS_FERMAT[chave.e.toString()];
+  const cabe65537 = 65537n < chave.phi && gcd(65537n, chave.phi) === 1n;
+  return html`<details className="teoria" open=${aberto}>
+    <summary>Como escolher ${V("e")}</summary>
+    <div className="teoria-corpo">
+      <div className="teoria-item">
+        <span className="teoria-rot">Regra matemática</span>
+        <div className="teoria-eq">1${" < "}${V("e")}${" < "}<${Phi} /> <span className="e-tal">tal que</span> mdc(${V("e")}, <${Phi} />) = 1</div>
+        <p>${V("e")} e <${Phi} /> precisam ser coprimos. Só assim a identidade de Bézout garante um ${V("d")} com ${V("e")}·${V("d")} ≡ 1 (mod <${Phi} />), que é a chave privada.</p>
+      </div>
+      <div className="teoria-item">
+        <span className="teoria-rot">Geração</span>
+        <p>Qualquer valor coprimo com <${Phi} /> nesse intervalo funciona, então ${V("e")} pode ser sorteado entre eles.${validos !== null ? html` Para esta chave há <b>${agrupar(validos)}</b> escolhas válidas, contadas como ${V("φ")}(<${Phi} />) = ${V("φ")}(${agrupar(chave.phi)}), menos o ${V("e")} = 1.` : null}</p>
+      </div>
+      <div className="teoria-item">
+        <span className="teoria-rot">Padrão de mercado (chaves grandes)</span>
+        <p>Em chaves RSA reais, de 2048 bits ou mais, o padrão é o primo de Fermat ${V("e")} = 65537 = 2¹⁶ + 1. Em binário ele é <span className="bin">1 0000 0000 0000 0001</span>: só dois bits 1. Por isso ${V("m")}<sup>${V("e")}</sup> mod ${V("n")} custa 16 quadrados e uma única multiplicação. Um ${V("e")} sorteado com 2048 bits custaria cerca de 2047 quadrados e mil multiplicações.</p>
+        <p className="teoria-atual">
+          Nesta chave, ${V("e")} = ${agrupar(chave.e)}${fermat ? html` = ${fermat}, primo de Fermat` : null}, em binário <span className="bin">${binarioAgrupado(chave.e)}</span>: ${quadrados} quadrado${quadrados === 1 ? "" : "s"} e ${mults} multiplicaç${mults === 1 ? "ão" : "ões"} por bloco.
+          ${!cabe65537 && chave.e !== 65537n && 65537n >= chave.phi ? html` O 65537 não cabe aqui porque é maior que <${Phi} />.` : null}
+        </p>
+      </div>
+    </div>
+  </details>`;
+}
+
+const ENDERECO_SALA ="claude.ai/artifact/79GWKS1cAwesvKpDicDwZk";
+
+/* Endereço de entrada direta do participante, com o PIN.
+   Fora do Claude (ex.: GitHub Pages): domínio atual + #/participante?pin=123456.
+   Dentro do visualizador do Claude a página roda num domínio isolado e só um #nome simples
+   atravessa o link do artifact, então ali o endereço é o do artifact com #entrar-123456. */
+function linkSala(pin) {
+  const noVisualizador = window.top !== window.self || typeof window.claude?.use === "function";
+  if (noVisualizador) return `https://${ENDERECO_SALA}#entrar-${pin}`;
+  return `${window.location.origin}${window.location.pathname}#/participante?pin=${pin}`;
+}
+
+function QrSala({ link }) {
+  const qr = useMemo(() => {
+    if (typeof qrcode !== "function") return null;
+    try {
+      const q = qrcode(0, "M");
+      q.addData(link);
+      q.make();
+      const n = q.getModuleCount();
+      let d = "";
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c} ${r}h1v1h-1z`;
+      return { n, d };
+    } catch (_) { return null; }
+  }, [link]);
+  if (!qr) return html`<p className="qr-falha">QR Code indisponível. Use o PIN ou o link abaixo.</p>`;
+  const m = 3, lado = qr.n + 2 * m;
+  return html`<div className="qr">
+    <svg viewBox=${`${-m} ${-m} ${lado} ${lado}`} role="img" aria-label=${"QR Code para entrar na sala: " + link} shapeRendering="crispEdges">
+      <rect x=${-m} y=${-m} width=${lado} height=${lado} fill="#FFFFFF" />
+      <path d=${qr.d} fill="#0F1A2C" />
+    </svg>
+  </div>`;
+}
+
+const limparNome = (s) => String(s || "").replace(/\s+/g, " ").trim().slice(0, 30);
+function lembrarNome(n) { try { localStorage.setItem("rsa-room-guardiao", n); } catch (_) {} }
+function nomeLembrado() { try { return localStorage.getItem("rsa-room-guardiao") || ""; } catch (_) { return ""; } }
+
+function NomeEditavel({ nome, onSalvar }) {
+  const [editando, setEditando] = useState(false);
+  const [txt, setTxt] = useState(nome);
+  function salvar(ev) {
+    ev.preventDefault();
+    const n = limparNome(txt);
+    if (n) onSalvar(n);
+    setEditando(false);
+  }
+  if (editando) return html`<form className="nome-edit" onSubmit=${salvar}>
+    <label htmlFor="in-nome-host" className="sr-only">Nome ou apelido do Guardião</label>
+    <input id="in-nome-host" maxLength="30" value=${txt} autoFocus onChange=${(e) => setTxt(e.target.value)} />
+    <button className="btn-copiar" type="submit">Salvar</button>
+    <button className="btn-copiar" type="button" onClick=${() => { setTxt(nome); setEditando(false); }}>Cancelar</button>
+  </form>`;
+  return html`<div className="nome-sala">
+    <span>Sala de <b>${nome}</b> <span className="nome-papel">(Guardião)</span></span>
+    <button className="btn-copiar" onClick=${() => { setTxt(nome); setEditando(true); }}>Editar nome</button>
+  </div>`;
+}
+
+function LinkDireto({ pin }) {
+  const [copiado, setCopiado] = useState(false);
+  const ref = useRef(null);
+  /* Domínio atual da aplicação (ex.: GitHub Pages). Dentro do visualizador do Claude, a página roda
+     num domínio isolado que não abre para outras pessoas, então ali o link usa o endereço do artifact. */
+  const link = linkSala(pin);
+  const exibido = link.replace(/^https?:\/\//, "");
+  function copiar() {
+    const selecionar = () => {
+      const r = document.createRange();
+      r.selectNodeContents(ref.current);
+      const s = getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    };
+    try {
+      navigator.clipboard.writeText(link).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); }, selecionar);
+    } catch (_) { selecionar(); }
+  }
+  return html`<div className="link-direto">
+    <span className="pin-rot">Link direto, já com o PIN</span>
+    <div className="link-linha">
+      <code ref=${ref}>${exibido}</code>
+      <button className="btn-copiar" onClick=${copiar}>${copiado ? "Copiado" : "Copiar"}</button>
+    </div>
+  </div>`;
+}
+
+const MAX_BLOCOS = 24;
+
+function MensagemHost({ m, chave, auto }) {
+  const compativel = m.kid === chave.kid;
+  const [aberta, setAberta] = useState(auto);
+  const res = useMemo(() => {
+    if (!compativel) return null;
+    const cs = m.c.map((x) => BigInt(x));
+    if (cs.some((c) => c >= chave.n)) return { invalida: true };
+    const ms = cs.map((c) => modPow(c, chave.d, chave.n));
+    const bytes = blocosParaBytes(ms, chave.k, m.L);
+    const chars = segmentarUtf8(bytes);
+    const texto = chars.map((x) => x.texto).join("");
+    const celulas = celulasPorBloco(chars, chave.k, Math.min(ms.length, MAX_BLOCOS));
+    return { cs, ms, texto, celulas };
+  }, [m, chave, compativel]);
+  const [rev, setRev] = useState(0);
+
+  useEffect(() => {
+    if (!aberta || !res || res.invalida) return;
+    if (reduzMovimento()) { setRev(res.ms.length); return; }
+    setRev(0);
+    let i = 0;
+    const passo = Math.max(30, Math.min(160, 1400 / res.ms.length));
+    const iv = setInterval(() => { i++; setRev(i); if (i >= res.ms.length) clearInterval(iv); }, passo);
+    return () => clearInterval(iv);
+  }, [aberta, res]);
+
+  const hora = new Date(m.chegou).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const pronta = res && !res.invalida && rev >= res.ms.length;
+  const MAX = MAX_BLOCOS;
+
+  return html`<article className=${"msg " + (pronta ? "msg-ok" : "")}>
+    <header className="msg-cab">
+      <b className="msg-nick"><span className=${"caixa-ico " + (pronta ? "aberta" : "")} aria-label=${pronta ? "Caixa aberta" : "Caixa trancada"}>${pronta ? "📦" : "🔒"}</span>${m.nick}</b>
+      <span className="msg-meta">${hora} · ${m.c.length} bloco${m.c.length > 1 ? "s" : ""}</span>
+    </header>
+    ${!compativel
+      ? html`<p className="aviso">Cifrada com um cadeado anterior (<span className="id-chave" tabIndex="0" title="Código identificador único do par de chaves público/privado antigo." aria-label=${"ID da chave: " + m.kid + ". Código identificador único do par de chaves público/privado antigo."}>ID da chave: ${m.kid}</span>). A chave privada atual não a decifra.</p>
+          <${Fichas} itens=${m.c} max=${MAX} rotulo="Blocos cifrados" />`
+      : res.invalida
+        ? html`<p className="aviso">Há blocos maiores que ${V("n")}: esta cifra não foi gerada com a chave pública atual.</p>`
+        : html`<div className="tabela-rolagem">
+            <table className="blocos">
+              <tbody>
+                <tr className="linha-txt"><th scope="row">texto</th>${res.celulas.map((cel) => {
+                  const ok = rev >= cel.ini + cel.span;
+                  return html`<td key=${cel.ini} colSpan=${cel.span} className=${(ok ? "rev " : "") + (cel.span > 1 ? "multi" : "")} title=${ok && cel.span > 1 ? `“${cel.texto}” ocupa ${cel.span} blocos` : undefined}>${ok ? visivel(cel.texto) : "·"}</td>`;
+                })}${m.c.length > MAX ? html`<td className="mais"></td>` : null}</tr>
+                <tr><th scope="row"><span className="th-ico" aria-hidden="true">🔒</span>${V("c")}</th>${m.c.slice(0, MAX).map((c, i) => html`<td key=${i}>${agrupar(c)}</td>`)}${m.c.length > MAX ? html`<td className="mais">+${m.c.length - MAX}</td>` : null}</tr>
+                <tr className="linha-m"><th scope="row"><span className="th-ico" aria-hidden="true">${pronta ? "📦" : "🔒"}</span>${V("m")}</th>${res.ms.slice(0, MAX).map((x, i) => html`<td key=${i} className=${i < rev ? "rev" : ""}>${i < rev ? agrupar(x) : "·"}</td>`)}${m.c.length > MAX ? html`<td className="mais"></td>` : null}</tr>
+              </tbody>
+            </table>
+          </div>
+          ${aberta
+            ? html`<p className=${"claro " + (pronta ? "visivel" : "")}>${pronta ? res.texto : `Decifrando bloco ${Math.min(rev + 1, res.ms.length)} de ${res.ms.length}…`}</p>`
+            : html`<button className="btn btn-priv" onClick=${() => setAberta(true)}>Decifrar com ${V("d")}</button>`}`}
+  </article>`;
+}
+
+/* ============================================================
+   PARTICIPANTE (Emissor)
+   ============================================================ */
+/* Cada caractere sobre os seus bytes. Letras de vários bytes (á = 195 161) ganham destaque. */
+function MapaUtf8({ chars, bytes, k, maxBytes = 28 }) {
+  const vis = [];
+  let total = 0;
+  for (const c of chars) {
+    const nb = c.fim - c.ini;
+    if (vis.length && total + nb > maxBytes) break;
+    vis.push(c);
+    total += nb;
+  }
+  const restantes = chars.length - vis.length;
+  return html`<div className="mapa-utf8">
+    ${vis.map((c, i) => {
+      const nb = c.fim - c.ini;
+      return html`<div key=${i} className=${"gc " + (nb > 1 ? "gc-multi" : "")}>
+        <span className="gc-char">${visivel(c.texto)}</span>
+        <span className="gc-bytes">${bytes.slice(c.ini, c.fim).map((b, j) => html`<span key=${j} className="ficha">${b}</span>`)}</span>
+        ${nb > 1 ? html`<span className="gc-tag">${nb} bytes${k === 1 ? ` = ${nb} blocos` : ""}</span>` : null}
+      </div>`;
+    })}
+    ${restantes ? html`<span className="ficha mais">+${restantes} caractere${restantes > 1 ? "s" : ""}</span>` : null}
+  </div>`;
+}
+
+function aparar(msgs) {
+  let lista = msgs.slice(-6).map(({ id, kid, L, c }) => ({ id, kid, L, c }));
+  while (lista.length > 1 && codificador.encode(JSON.stringify(lista)).length > 3400) lista = lista.slice(1);
+  return lista;
+}
+
+function Participante({ barramento, pinInicial = "", pinDoLink = false, nickInicial = "", textoInicial = "", auto = false, embutido = false, onSair }) {
+  const [pin, setPin] = useState(pinInicial);
+  const [nick, setNick] = useState(nickInicial);
+  const [pinAtivo, setPinAtivo] = useState(auto && pinInicial && nickInicial ? pinInicial : null);
+  const [erroEntrada, setErroEntrada] = useState("");
+  const [t, status] = useTransporte(pinAtivo, barramento);
+  const pares = usePares(t);
+  const [texto, setTexto] = useState(textoInicial);
+  const [enviadas, setEnviadas] = useState([]);
+  const [conectadoHa, setConectadoHa] = useState(0);
+
+  useEffect(() => { if (t) setConectadoHa(Date.now()); }, [t]);
+  const [, tique] = useState(0);
+  useEffect(() => { if (!t) return; const iv = setInterval(() => tique((x) => x + 1), 1500); return () => clearInterval(iv); }, [t]);
+
+  const anfitriao = pares.find((p) => !p.isMe && p.presence?.role === "host" && numeroDaSala(String(p.presence.n || "")) && numeroDaSala(String(p.presence.e || "")));
+  const nomeHost = anfitriao ? limparNome(anfitriao.presence.nome) : "";
+  const chave = useMemo(() => {
+    if (!anfitriao) return null;
+    const n = BigInt(anfitriao.presence.n), e = BigInt(anfitriao.presence.e);
+    const k = bytesPorBloco(n);
+    if (k < 1 || e < 2n) return null;
+    return { n, e, k, kid: String(anfitriao.presence.kid || impressao(n)).slice(0, 12) };
+  }, [anfitriao?.presence?.n, anfitriao?.presence?.e]);
+
+  useEffect(() => {
+    if (!t) return;
+    t.setPresence({ role: "emissor", nick: nick.trim().slice(0, 20), msgs: aparar(enviadas) });
+  }, [t, nick, enviadas]);
+
+  const pipeline = useMemo(() => {
+    if (!chave || !texto) return null;
+    const { bytes, blocos } = paraBlocos(texto, chave.k);
+    const cs = blocos.map((m) => modPow(m, chave.e, chave.n));
+    return { bytes, blocos, cs, chars: segmentarUtf8(bytes) };
+  }, [texto, chave]);
+
+  /* Bloco escolhido para a tabela de exponenciação rápida. */
+  const [sel, setSel] = useState(0);
+  const detalhes = useRef(null);
+  const selIdx = pipeline && sel < pipeline.blocos.length ? sel : 0;
+  const passos = useMemo(
+    () => (pipeline && pipeline.blocos.length ? modPowSteps(pipeline.blocos[selIdx], chave.e, chave.n) : null),
+    [pipeline, selIdx]
+  );
+  function escolherBloco(i) {
+    setSel(i);
+    if (detalhes.current) detalhes.current.open = true;
+  }
+
+  /* Confirmação visual do envio. */
+  const [envios, setEnvios] = useState(0);
+  const [confirmando, setConfirmando] = useState(false);
+  useEffect(() => {
+    if (!envios) return;
+    const tm = setTimeout(() => setConfirmando(false), 1800);
+    return () => clearTimeout(tm);
+  }, [envios]);
+
+  function entrar(ev) {
+    ev.preventDefault();
+    if (!/^\d{6}$/.test(pin.trim())) { setErroEntrada("O PIN tem 6 dígitos. Confira o número projetado pelo anfitrião."); return; }
+    if (!nick.trim()) { setErroEntrada("Escolha um apelido para a turma reconhecer sua mensagem."); return; }
+    setErroEntrada("");
+    setPinAtivo(pin.trim());
+  }
+
+  function enviar(ev) {
+    ev.preventDefault();
+    if (!pipeline || !texto.trim()) return;
+    const msg = { id: rid(8), kid: chave.kid, L: pipeline.bytes.length, c: pipeline.cs.map(String), texto, hora: Date.now() };
+    setEnviadas((v) => [...v, msg]);
+    setTexto("");
+    setSel(0);
+    setEnvios((x) => x + 1);
+    setConfirmando(true);
+  }
+
+  const bytesTexto = useMemo(() => codificador.encode(texto).length, [texto]);
+  const procurandoHa = t && !anfitriao ? Date.now() - conectadoHa : 0;
+
+  const corpo = !pinAtivo
+    ? html`<form className="entrada painel" onSubmit=${entrar}>
+        <h2>Entrar na sala</h2>
+        ${pinDoLink && pin === pinInicial
+          ? html`<p className="pin-link">✓ PIN ${pinInicial} preenchido pelo link. Só falta o seu apelido.</p>`
+          : html`<p className="passo-n">Digite o PIN que está na tela do anfitrião.</p>`}
+        <label className="campo" htmlFor="in-pin"><span>PIN</span>
+          <input id="in-pin" className="in-pin" inputMode="numeric" autoComplete="off" maxLength="6" placeholder="000000" value=${pin} onChange=${(e) => setPin(e.target.value.replace(/\D/g, ""))} />
+        </label>
+        <label className="campo" htmlFor="in-nick"><span>Apelido</span>
+          <input id="in-nick" maxLength="20" autoComplete="nickname" autoFocus=${pinDoLink} placeholder="Como a sala vai ver você" value=${nick} onChange=${(e) => setNick(e.target.value)} />
+        </label>
+        ${erroEntrada ? html`<p className="erro" role="alert">${erroEntrada}</p>` : null}
+        <button className="btn btn-pub" type="submit">Entrar</button>
+      </form>`
+    : html`<div className="part">
+        <div className="part-cab">
+          <span>${nomeHost ? html`Conectado à sala de <b>${nomeHost}</b> · ` : null}PIN <b>${pinAtivo}</b> · você é <b>${nick.trim()}</b></span>
+          ${embutido ? null : html`<button className="btn-link" onClick=${() => { setPinAtivo(null); setEnviadas([]); }}>Trocar de sala</button>`}
+        </div>
+
+        ${!chave
+          ? html`<div className="painel aguardando">
+              <div className="pontinhos" aria-hidden="true"><span></span><span></span><span></span></div>
+              <p><b>Procurando o anfitrião da sala ${pinAtivo}…</b></p>
+              ${procurandoHa > 5000 ? html`<p className="passo-n">${status === "tabs"
+                ? "Neste modo, o anfitrião precisa estar aberto em outra aba deste mesmo navegador. Confira também o PIN."
+                : "Confira o PIN e se o anfitrião está com a sala aberta."}</p>` : null}
+            </div>`
+          : html`<div className="part-grid">
+              <div className="cartao-chave pub">
+                <span className="ck-rot">Cadeado Público de ${nomeHost || "Anfitrião"} (${V("e")}, ${V("n")}) 🔓</span>
+                <span className="ck-val">(${V("e")}, ${V("n")}) = (${agrupar(chave.e)}, ${agrupar(chave.n)})</span>
+                <span className="ck-nota">Você só consegue cifrar. Decifrar exige ${V("d")}, que nunca sai do aparelho do anfitrião.</span>
+              </div>
+
+              <${SinteseFormulas} />
+
+              <form className="painel compor" onSubmit=${enviar}>
+                <label htmlFor=${"msg-" + nick} className="compor-rot">Mensagem secreta</label>
+                <textarea id=${"msg-" + nick} rows="3" maxLength="140" placeholder="Escreva algo que só o anfitrião vai ler" value=${texto} onChange=${(e) => setTexto(e.target.value)}></textarea>
+                <div className="compor-rodape">
+                  <span className="passo-n">${texto.length}/140 caracteres · ${bytesTexto} bytes</span>
+                  <button className=${"btn btn-pub btn-enviar " + (confirmando ? "enviado" : "")} type="submit" disabled=${!texto.trim() && !confirmando}>
+                    ${confirmando
+                      ? html`<span key=${envios} className="enviado-conteudo"><svg className="check" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M4 10.5l4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>Enviado!</span>`
+                      : "Trancar com o cadeado e enviar 🔒"}
+                  </button>
+                  <span className="sr-only" aria-live="polite">${confirmando ? "Cifra enviada para a sala." : ""}</span>
+                </div>
+              </form>
+
+              ${pipeline
+                ? html`<div className="pipeline">
+                    <div className="etapa">
+                      <span className="etapa-t">Caracteres → bytes UTF-8</span>
+                      <${MapaUtf8} chars=${pipeline.chars} bytes=${pipeline.bytes} k=${chave.k} />
+                    </div>
+                    <div className="etapa">
+                      <span className="etapa-t">Blocos ${V("m")} (${chave.k} byte${chave.k > 1 ? "s" : ""} cada, ${V("m")}${" < "}${V("n")})</span>
+                      <div className="fichas" role="group" aria-label="Blocos m">
+                        ${pipeline.blocos.slice(0, 16).map((m, i) => html`<button type="button" key=${i} className=${"ficha ficha-btn plain " + (i === selIdx ? "sel" : "")} aria-pressed=${i === selIdx} title=${"Ver o cálculo do bloco " + (i + 1)} onClick=${() => escolherBloco(i)}>${agrupar(m)}</button>`)}
+                        ${pipeline.blocos.length > 16 ? html`<span className="ficha mais">+${pipeline.blocos.length - 16}</span>` : null}
+                      </div>
+                      <span className="passo-n">Toque em um bloco para ver o cálculo dele.</span>
+                    </div>
+                    <div className="etapa">
+                      <span className="etapa-t">Cifra ${V("c")} = ${V("m")}<sup>${V("e")}</sup> mod ${V("n")}</span>
+                      <div className="fichas" aria-label="Blocos c">
+                        ${pipeline.cs.slice(0, 16).map((c, i) => html`<span key=${i} className=${"ficha pub selada " + (i === selIdx ? "sel" : "")}>${agrupar(c)}</span>`)}
+                        ${pipeline.cs.length > 16 ? html`<span className="ficha mais">+${pipeline.cs.length - 16}</span>` : null}
+                      </div>
+                    </div>
+                    ${passos ? html`<details className="euclides" ref=${detalhes}>
+                      <summary>Exponenciação Rápida (Algoritmo Square-and-Multiply) do bloco ${selIdx + 1}: ${V("m")}<sup>${V("e")}</sup> mod ${V("n")}</summary>
+                      <div className="sm-valores">
+                        <span>${V("m")} = <b className="v-plain">${agrupar(pipeline.blocos[selIdx])}</b></span>
+                        <span>${V("e")} = ${agrupar(chave.e)}</span>
+                        <span>${V("n")} = ${agrupar(chave.n)}</span>
+                        <span>⟹ ${V("c")} = <b className="v-pub">${agrupar(passos.r)}</b></span>
+                      </div>
+                      <p className="passo-n">${V("e")} em binário = ${chave.e.toString(2)}. Para cada bit: eleva ao quadrado; se o bit for 1, multiplica por ${V("m")}.</p>
+                      <div className="tabela-rolagem">
+                        <table>
+                          <thead><tr><th>bit</th><th>${V("r")}² mod ${V("n")}</th><th>× ${V("m")} se bit = 1</th></tr></thead>
+                          <tbody>${passos.passos.map((s, i) => html`<tr key=${i}><td>${s.bit}</td><td>${agrupar(s.quadrado)}</td><td>${s.bit === "1" ? agrupar(s.depois) : "—"}</td></tr>`)}</tbody>
+                        </table>
+                      </div>
+                      <p className="passo-n">${passos.passos.length} quadrados em vez de ${agrupar(chave.e)} multiplicações.</p>
+                    </details>` : null}
+                  </div>`
+                : html`<p className="dica-card">Ao digitar, você vê o texto virar bytes, os bytes virarem blocos ${V("m")} e cada bloco virar ${V("c")}.</p>`}
+
+              ${enviadas.length ? html`<div className="enviadas">
+                <h3>Enviadas por você</h3>
+                ${[...enviadas].reverse().map((m) => html`<div key=${m.id} className="enviada">
+                  <div className="enviada-cab">
+                    <span className="claro-p">“${m.texto}”</span>
+                    ${m.kid !== chave.kid ? html`<${Chip} tom="aviso-chip">chave antiga<//>` : html`<${Chip} tom="ok-chip">na sala<//>`}
+                  </div>
+                  <${Fichas} itens=${m.c} tom="pub selada" max=${12} rotulo="Cifra enviada" />
+                </div>`)}
+                <p className="passo-n">Só a cifra saiu deste aparelho. O texto acima fica apenas na sua tela.</p>
+              </div>` : null}
+            </div>`}
+      </div>`;
+
+  if (embutido) return corpo;
+  return html`<div className="tela">
+    <${Barra} titulo="Participante" status=${pinAtivo ? status : null} onSair=${onSair} />
+    <div className="wrap estreito">${corpo}</div>
+  </div>`;
+}
+
+/* ============================================================
+   INTERCEPTADOR (Hacker)
+   ============================================================ */
+const LIMITES_TEMPO = [15, 30, 60, 120];
+
+/* Ritmos do ataque. ops = divisões por tick; opsCrivo = marcações por tick na fase do crivo. */
+const VELOCIDADES = {
+  lenta: { nome: "Câmera lenta (1 divisão a cada 0,25 s)", intervalo: 250, ops: 1, opsCrivo: 25, orcamentoMs: 20, registrar: true },
+  didatica: { nome: "Didática (50 divisões a cada 100 ms)", intervalo: 100, ops: 50, opsCrivo: 1000, orcamentoMs: 20, registrar: true },
+  maxima: { nome: "Máxima (o computador a toda força)", intervalo: 16, ops: Infinity, opsCrivo: Infinity, orcamentoMs: 30, registrar: false },
+};
+
+/* Quanto do caminho até √n já foi percorrido, legível mesmo quando é minúsculo. */
+function fracaoLegivel(cand, raiz) {
+  const f = (Number(cand) / Number(raiz)) * 100;
+  if (!isFinite(f) || f >= 0.01) return html`${Math.min(100, f).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
+  return html`≈ 10<sup>${Math.floor(Math.log10(f))}</sup>%`;
+}
+
+function Interceptador({ barramento, pinInicial = "", auto = false, embutido = false, onSair }) {
+  const [pin, setPin] = useState(pinInicial);
+  const [pinAtivo, setPinAtivo] = useState(auto && pinInicial ? pinInicial : null);
+  const [erroEntrada, setErroEntrada] = useState("");
+  const [t, status] = useTransporte(pinAtivo, barramento);
+  const pares = usePares(t);
+  /* Realismo: o interceptador não publica presença; o anfitrião não tem como saber que está sendo ouvido. */
+
+  const anfitriao = pares.find((p) => !p.isMe && p.presence?.role === "host" && numeroDaSala(String(p.presence.n || "")) && numeroDaSala(String(p.presence.e || "")));
+  const nomeHost = anfitriao ? limparNome(anfitriao.presence.nome) : "";
+  const chave = useMemo(() => {
+    if (!anfitriao) return null;
+    const n = BigInt(anfitriao.presence.n), e = BigInt(anfitriao.presence.e);
+    return { n, e, k: bytesPorBloco(n), kid: String(anfitriao.presence.kid || impressao(n)).slice(0, 12) };
+  }, [anfitriao?.presence?.n, anfitriao?.presence?.e]);
+
+  /* Captura tudo o que passa pela via pública. */
+  const [capturadas, setCapturadas] = useState([]);
+  const vistas = useRef(new Set());
+  useEffect(() => {
+    const novas = [];
+    for (const p of pares) {
+      const pr = p.presence || {};
+      if (p.isMe || pr.role !== "emissor" || !Array.isArray(pr.msgs)) continue;
+      for (const m of pr.msgs) {
+        if (!mensagemValida(m)) continue;
+        const uid = p.id + ":" + m.id;
+        if (vistas.current.has(uid)) continue;
+        vistas.current.add(uid);
+        novas.push({ uid, nick: String(pr.nick || "Anônimo").slice(0, 20), kid: m.kid, L: m.L, c: m.c });
+      }
+    }
+    if (novas.length) setCapturadas((v) => [...novas.reverse(), ...v].slice(0, 40));
+  }, [pares]);
+
+  const [alg, setAlg] = useState("divisao");
+  const [limite, setLimite] = useState(30);
+  const [velocidade, setVelocidade] = useState("didatica");
+  const [placar, setPlacar] = useState(null);
+  const crivoOk = chave ? crivoPossivel(chave.n) : false;
+  useEffect(() => { if (!crivoOk && alg === "crivo") setAlg("divisao"); }, [crivoOk, alg]);
+
+  /* Um único timer por vez. timerRef guarda o setInterval; motorRef guarda o ataque em curso,
+     e um tick de um ataque antigo que ainda chegue se desliga sozinho. */
+  const timerRef = useRef(null);
+  const motorRef = useRef(null);
+  function pararTimer() {
+    if (timerRef.current !== null) { clearInterval(timerRef.current); timerRef.current = null; }
+  }
+  function parar() { pararTimer(); motorRef.current = null; }
+  useEffect(() => () => parar(), []);
+  useEffect(() => { parar(); setPlacar(null); }, [chave?.n]);
+
+  function atacar() {
+    if (!chave) return;
+    parar();
+    setPlacar(null);
+    const cfg = VELOCIDADES[velocidade];
+    const motor = criarAtaque(chave.n, alg);
+    motorRef.current = motor;
+    const inicio = agora();
+    const limiteMs = limite * 1000;
+    const instantaneo = () => ({ ...motor.estado, ultimos: [...motor.estado.ultimos], decorrido: agora() - inicio, limiteMs, velocidade, lenta: cfg.registrar, n: chave.n, e: chave.e, kid: chave.kid });
+    const tick = () => {
+      if (motorRef.current !== motor) return;
+      const ops = motor.estado.fase === "crivo" ? cfg.opsCrivo : cfg.ops;
+      const st = motor.passo(cfg.orcamentoMs, ops, cfg.registrar);
+      const snap = instantaneo();
+      let fim = st.achou || st.acabou;
+      if (!fim && snap.decorrido >= limiteMs) { snap.esgotado = true; fim = true; }
+      if (fim) parar();
+      setPlacar(snap);
+    };
+    setPlacar(instantaneo());
+    timerRef.current = setInterval(tick, cfg.intervalo);
+  }
+
+  /* Quando o n é fatorado, o hacker refaz a matemática do anfitrião. */
+  const quebra = useMemo(() => {
+    if (!placar?.achou || !chave || placar.n !== chave.n) return null;
+    const k = montarChave(placar.achou.p, placar.achou.q, chave.e);
+    return k.erro ? null : k;
+  }, [placar?.achou, chave]);
+
+  /* Mensagens abertas ficam abertas para sempre, mesmo que o anfitrião troque de chave depois.
+     lidas: uid → texto decifrado. kidQuebrado: impressão da chave que o hacker fatorou. */
+  const [lidas, setLidas] = useState({});
+  const kidQuebrado = quebra ? placar.kid : null;
+  useEffect(() => {
+    if (!quebra) return;
+    const novas = {};
+    for (const m of capturadas) {
+      if (m.kid !== kidQuebrado || lidas[m.uid] !== undefined) continue;
+      try {
+        novas[m.uid] = deBlocos(m.c.map((x) => modPow(BigInt(x), quebra.d, quebra.n)), quebra.k, m.L);
+      } catch (_) {}
+    }
+    if (Object.keys(novas).length) setLidas((v) => ({ ...v, ...novas }));
+  }, [quebra, capturadas]);
+  const lerComChaveQuebrada = (m) => (lidas[m.uid] !== undefined ? lidas[m.uid] : null);
+
+  function entrar(ev) {
+    ev.preventDefault();
+    if (!/^\d{6}$/.test(pin.trim())) { setErroEntrada("O PIN tem 6 dígitos. É o mesmo número projetado pelo anfitrião."); return; }
+    setErroEntrada("");
+    setPinAtivo(pin.trim());
+  }
+
+  const rodando = placar && !placar.achou && !placar.acabou && !placar.esgotado;
+  const seg = placar ? placar.decorrido / 1000 : 0;
+  const taxa = placar && seg > 0.05 ? placar.testes / seg : 0;
+  const restante = placar ? Math.max(0, (placar.limiteMs - placar.decorrido) / 1000) : limite;
+  let etaTotal = null;
+  if (placar && taxa > 0) {
+    const raizNum = Number(placar.raiz);
+    const totalTestes = placar.alg === "crivo" ? raizNum / Math.max(1, Math.log(raizNum)) : raizNum / 2;
+    etaTotal = isFinite(totalTestes) ? totalTestes / taxa : Infinity;
+  }
+  /* A projeção para 2048 bits usa o ritmo máximo do navegador, não o ritmo freado da aula. */
+  const anos2048 = Math.round(1023 * Math.log10(2) - Math.log10(2e7) - Math.log10(31536000));
+  const pct = placar ? (placar.fase === "crivo" ? null : fracaoLegivel(placar.candidato, placar.raiz)) : null;
+  const barra = placar ? (placar.achou ? 100 : placar.fase === "crivo" ? placar.progressoCrivo * 100 : Math.min(100, Number((placar.candidato * 10000n) / (placar.raiz || 1n)) / 100)) : 0;
+
+  const corpo = !pinAtivo
+    ? html`<form className="entrada painel painel-hacker" onSubmit=${entrar}>
+        <h2>Grampear uma sala</h2>
+        <p className="passo-n">Digite o PIN da sala. Você vai enxergar tudo o que passa pela via pública, mas não a chave privada.</p>
+        <label className="campo" htmlFor="in-pin-h"><span>PIN</span>
+          <input id="in-pin-h" className="in-pin" inputMode="numeric" autoComplete="off" maxLength="6" placeholder="000000" value=${pin} onChange=${(e) => setPin(e.target.value.replace(/\D/g, ""))} />
+        </label>
+        ${erroEntrada ? html`<p className="erro" role="alert">${erroEntrada}</p>` : null}
+        <button className="btn btn-hacker" type="submit">Começar a interceptar</button>
+      </form>`
+    : html`<div className="part hacker">
+        <div className="part-cab">
+          <span>🕵️ ${nomeHost ? html`Interceptando mensagens da sala de <b>${nomeHost}</b> · PIN <b>${pinAtivo}</b>` : html`Grampo na sala <b>${pinAtivo}</b>`}</span>
+          ${embutido ? null : html`<button className="btn-link" onClick=${() => { parar(); setPinAtivo(null); setCapturadas([]); setLidas({}); vistas.current = new Set(); setPlacar(null); }}>Trocar de sala</button>`}
+        </div>
+        ${!chave
+          ? html`<div className="painel aguardando">
+              <div className="pontinhos" aria-hidden="true"><span></span><span></span><span></span></div>
+              <p><b>Esperando o anfitrião publicar a chave pública…</b></p>
+            </div>`
+          : html`<div className="part-grid">
+              <div className="interceptado">
+                <span className="ck-rot">Interceptado na via pública</span>
+                <div className="int-chave">(${V("e")}, ${V("n")}) = (${agrupar(chave.e)}, ${agrupar(chave.n)})</div>
+                <p className="passo-n">Para ler as mensagens você precisa de ${V("d")}. Para calcular ${V("d")} precisa de ${V("φ")}(${V("n")}) = (${V("p")} − 1)(${V("q")} − 1). Ou seja: descobrir os dois primos que multiplicados dão ${V("n")}.</p>
+              </div>
+
+              <section className="painel ataque" aria-labelledby="h-ataque">
+                <h3 id="h-ataque">Tentando forçar a fechadura do cadeado <span className="h-sub">(Fatorando ${V("n")} = ${V("p")} · ${V("q")})</span></h3>
+                <div className="ataque-opcoes">
+                  <div className="segmentado" role="tablist" aria-label="Algoritmo">
+                    <button role="tab" aria-selected=${alg === "divisao"} className=${alg === "divisao" ? "on" : ""} disabled=${rodando} onClick=${() => setAlg("divisao")}>Divisão por tentativas</button>
+                    <button role="tab" aria-selected=${alg === "crivo"} className=${alg === "crivo" ? "on" : ""} disabled=${rodando || !crivoOk} onClick=${() => setAlg("crivo")}>Crivo de Eratóstenes</button>
+                  </div>
+                  <label className="ataque-sel" htmlFor=${"lim-" + pinAtivo}>Tempo
+                    <select id=${"lim-" + pinAtivo} value=${limite} disabled=${rodando} onChange=${(e) => setLimite(Number(e.target.value))}>
+                      ${LIMITES_TEMPO.map((x) => html`<option key=${x} value=${x}>${x} s</option>`)}
+                    </select>
+                  </label>
+                  <label className="ataque-sel" htmlFor=${"vel-" + pinAtivo}>Velocidade
+                    <select id=${"vel-" + pinAtivo} value=${velocidade} disabled=${rodando} onChange=${(e) => setVelocidade(e.target.value)}>
+                      ${Object.entries(VELOCIDADES).map(([k, v]) => html`<option key=${k} value=${k}>${v.nome}</option>`)}
+                    </select>
+                  </label>
+                </div>
+                <p className="passo-n">${alg === "divisao"
+                  ? html`Testa 2, 3, 5, 7, 9, 11… um por um, até √${V("n")}. Se algum dividir ${V("n")} sem resto, ${V("n")} está quebrado.`
+                  : html`Primeiro risca os múltiplos de 3, 5, 7… até √${V("n")} e sobra só a lista de primos. Depois divide ${V("n")} apenas por eles: menos divisões, mas gasta memória.`}
+                  ${!crivoOk ? html` O crivo fica indisponível aqui: √${V("n")} tem ${isqrt(chave.n).toString().length} dígitos e a lista não caberia na memória do navegador.` : null}</p>
+
+                <div className="ataque-acoes">
+                  ${rodando
+                    ? html`<button className="btn btn-sec" onClick=${() => { parar(); setPlacar((p) => p && { ...p, esgotado: true, parado: true }); }}>Parar ataque</button>`
+                    : html`<button className="btn btn-hacker" onClick=${atacar}>${placar ? "Atacar de novo" : "Iniciar ataque"}</button>`}
+                  <span className=${"cronometro " + (rodando && restante < 5 ? "urgente" : "")}>${restante.toFixed(1).replace(".", ",")} s</span>
+                </div>
+
+                <${Fechadura} estado=${!placar ? "parada" : placar.achou ? "aberta" : rodando ? "forcando" : "resistiu"} progresso=${barra} candidato=${placar ? placar.candidato : null} />
+                ${placar ? html`<div className="placar">
+                  <div className="trilho"><div className=${"trilho-barra " + (placar.achou ? "ok" : "")} style=${{ width: Math.max(0.6, barra) + "%" }}></div></div>
+                  <div className="placar-grade">
+                    <div><span className="pl-rot">${placar.fase === "crivo" ? "Riscando múltiplos" : "Candidato atual"}</span><b className="num">${agrupar(placar.candidato)}</b></div>
+                    <div><span className="pl-rot">Limite √${V("n")}</span><b className="num">${agrupar(placar.raiz)}</b></div>
+                    <div><span className="pl-rot">Divisões feitas</span><b className="num">${placar.testes.toLocaleString("pt-BR")}</b></div>
+                    <div><span className="pl-rot">Ritmo</span><b className="num">${taxa ? Math.round(taxa).toLocaleString("pt-BR") + "/s" : "—"}</b></div>
+                    ${placar.alg === "crivo" ? html`<div><span className="pl-rot">Marcações do crivo</span><b className="num">${placar.marcados.toLocaleString("pt-BR")}</b></div>` : null}
+                    ${pct ? html`<div><span className="pl-rot">Caminho até √${V("n")}</span><b className="num">${pct}</b></div>` : null}
+                  </div>
+                  ${placar.lenta && placar.ultimos.length ? html`<div className="tentativas" aria-live="polite">
+                    ${placar.ultimos.map((u, i) => html`<span key=${i} className=${"tentativa " + (u.resto === 0 || u.resto === 0n ? "acerto" : "")}>${agrupar(chave.n)} ÷ ${agrupar(u.d)} → resto ${agrupar(u.resto)} ${u.resto === 0 || u.resto === 0n ? "✓" : "✗"}</span>`)}
+                  </div>` : null}
+
+                  ${placar.achou && quebra ? html`<div className="veredito quebrado" role="status">
+                    <b>Chave quebrada em ${formatarDuracao(placar.decorrido / 1000)}.</b>
+                    <span>${V("n")} = ${agrupar(quebra.p)} × ${agrupar(quebra.q)} → <span className="phi-not">${V("φ")}(${agrupar(quebra.n)})</span> = ${agrupar(quebra.phi)} → ${V("d")} = <b className="num priv">${agrupar(quebra.d)}</b></span>
+                    <span className="passo-n">Com primos deste tamanho, o RSA não protege nada. As mensagens abaixo já estão abertas.</span>
+                  </div>` : null}
+                  ${placar.esgotado && !placar.achou ? html`<div className="veredito resistiu" role="status">
+                    <b>${placar.parado ? "Ataque interrompido." : "Tempo esgotado: o RSA resistiu."}</b>
+                    <span>Foram ${placar.testes.toLocaleString("pt-BR")} divisões sem achar um fator.${etaTotal !== null ? html` No ritmo atual, testar tudo até √${V("n")} levaria <b>${formatarDuracao(etaTotal)}</b>.` : null}</span>
+                    ${placar.velocidade !== "maxima" ? html`<span className="passo-n">Este ataque foi freado para a aula. Escolha a velocidade “Máxima” para ver o computador a toda força.</span>` : null}
+                    <span className="passo-n">Uma chave real de 2048 bits, mesmo no ritmo máximo deste navegador (cerca de 20 milhões de divisões por segundo), levaria cerca de 10<sup>${anos2048}</sup> anos.</span>
+                  </div>` : null}
+                </div>` : null}
+              </section>
+
+              <div className="enviadas">
+                <h3>Caixas Trancadas Interceptadas 🔒 <span className="contagem">${capturadas.length}</span></h3>
+                ${capturadas.length
+                  ? capturadas.map((m) => {
+                      const lido = lerComChaveQuebrada(m);
+                      return html`<div key=${m.uid} className="enviada">
+                        <div className="enviada-cab"><b>${m.nick}</b>${lido !== null ? html`<${Chip} tom="quebrado-chip">lida<//>` : html`<${Chip}>trancada<//>`}</div>
+                        <${Fichas} itens=${m.c} tom=${lido !== null ? "pub selada aberta" : "pub selada"} max=${12} rotulo="Cifra capturada" />
+                        ${lido !== null ? html`<p className="lido">“${lido}”</p>` : null}
+                      </div>`;
+                    })
+                  : html`<p className="vazio">Nada passou pela via pública ainda. Quando um participante enviar, a cifra aparece aqui.</p>`}
+              </div>
+            </div>`}
+      </div>`;
+
+  if (embutido) return corpo;
+  return html`<div className="tela">
+    <${Barra} titulo="Interceptador" status=${pinAtivo ? status : null} onSair=${onSair} />
+    <div className="wrap estreito">${corpo}</div>
+  </div>`;
+}
+
+/* Indicador da fechadura: 12 pinos que vão "caindo" conforme o ataque avança até √n. */
+function Fechadura({ estado, progresso, candidato }) {
+  const PINOS = 12;
+  const caidos = estado === "aberta" ? PINOS : Math.floor((progresso / 100) * PINOS);
+  const rotulo = { parada: "Cadeado intacto. Escolha o algoritmo e comece.", forcando: "Forçando a fechadura…", aberta: "Fechadura aberta: o segredo caiu.", resistiu: "A fechadura resistiu." }[estado];
+  return html`<div className=${"fechadura fe-" + estado} role="img" aria-label=${rotulo + " " + Math.round(progresso) + "% dos pinos"}>
+    <span className="fe-ico" aria-hidden="true">${estado === "aberta" ? "🔓" : "🔒"}</span>
+    <div className="fe-corpo">
+      <div className="fe-pinos" aria-hidden="true">${Array.from({ length: PINOS }, (_, i) => html`<span key=${i} className=${"pino " + (i < caidos ? "caido" : i === caidos && estado === "forcando" ? "mexendo" : "")}></span>`)}</div>
+      <span className="fe-rot">${rotulo}${estado === "forcando" && candidato != null ? html` <span className="fe-cand">tentando ${agrupar(candidato)}</span>` : null}</span>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   SIMULAÇÃO SOLO — anfitrião, três participantes e o hacker na mesma página
+   ============================================================ */
+const ENSAIO_NOMES = [
+  ["Ana", "Encontro na biblioteca às 15h"],
+  ["Bruno", "φ(n) = (p−1)(q−1) 🔐"],
+  ["Caio", ""],
+];
+
+function Ensaio({ onSair }) {
+  const [barramento] = useState(() => criarBarramentoLocal());
+  const [pin] = useState(novoPin);
+  const [aba, setAba] = useState(0);
+  const abas = [...ENSAIO_NOMES.map(([n]) => n), "🕵️ Hacker"];
+  return html`<div className="tela tela-solo">
+    <${Barra} titulo="Simulação solo" status="local" onSair=${onSair} />
+    <div className="wrap largo solo-wrap">
+      <p className="intro-ensaio">Todas as telas conversam nesta página. Envie uma mensagem como Ana ou Bruno, veja o anfitrião decifrar com ${V("d")} e depois troque para o Hacker e tente quebrar a chave.</p>
+      <div className="ensaio-grid">
+        <div className="col-rolagem" tabIndex="0" aria-label="Painel do Guardião">
+          <${Anfitriao} barramento=${barramento} pinInicial=${pin} ensaio=${true} nomeInicial="Prof. Euler" />
+        </div>
+        <section className="lado-part col-rolagem" tabIndex="0" aria-label="Participantes e hacker">
+          <div className="rotulo-painel"><span>Participantes e hacker</span></div>
+          <div className="abas" role="tablist" aria-label="Tela simulada">
+            ${abas.map((n, i) => html`<button key=${n} role="tab" aria-selected=${aba === i} className=${(aba === i ? "on " : "") + (i === abas.length - 1 ? "aba-hacker" : "")} onClick=${() => setAba(i)}>${n}</button>`)}
+          </div>
+          ${ENSAIO_NOMES.map(([n, txt], i) => html`<div key=${n} hidden=${aba !== i}>
+            <${Participante} barramento=${barramento} pinInicial=${pin} nickInicial=${n} textoInicial=${txt} auto=${true} embutido=${true} />
+          </div>`)}
+          <div hidden=${aba !== abas.length - 1}>
+            <${Interceptador} barramento=${barramento} pinInicial=${pin} auto=${true} embutido=${true} />
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   INÍCIO
+   ============================================================ */
+function ModalGuardiao({ nomeSalvo, onCriar, onFechar }) {
+  const [nome, setNome] = useState(nomeSalvo || "");
+  const [erro, setErro] = useState("");
+  useEffect(() => {
+    const esc = (e) => { if (e.key === "Escape") onFechar(); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, []);
+  function enviar(ev) {
+    ev.preventDefault();
+    const n = limparNome(nome);
+    if (!n) { setErro("Escreva um nome ou apelido. É assim que a turma vai reconhecer a sua sala."); return; }
+    onCriar(n);
+  }
+  return html`<div className="modal-fundo" onClick=${(e) => { if (e.target === e.currentTarget) onFechar(); }}>
+    <form className="modal" role="dialog" aria-modal="true" aria-labelledby="h-modal" onSubmit=${enviar}>
+      <span className="modal-glifo">${V("d")}</span>
+      <h2 id="h-modal">Criar sala</h2>
+      <label className="campo" htmlFor="in-guardiao"><span>Seu Nome ou Apelido</span>
+        <input id="in-guardiao" maxLength="30" autoFocus autoComplete="name" placeholder="Ex.: Rivest, Shamir, Adleman..." value=${nome} onChange=${(e) => setNome(e.target.value)} />
+      </label>
+      <p className="passo-n">Aparece para os participantes como “Conectado à sala de …”.</p>
+      ${erro ? html`<p className="erro" role="alert">${erro}</p>` : null}
+      <div className="modal-acoes">
+        <button type="button" className="btn btn-sec" onClick=${onFechar}>Cancelar</button>
+        <button type="submit" className="btn btn-priv">Criar sala →</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+function Inicio({ ir, nomeSalvo, onCriar }) {
+  const ex = useMemo(() => montarChave(61n, 53n, 17n), []);
+  const [modal, setModal] = useState(false);
+  const cA = modPow(65n, 17n, 3233n);
+  return html`<div className="wrap inicio">
+    <header className="hero">
+      <h1 className="marca grande-marca"><span className="marca-rsa">RSA</span> <span className="marca-sala">Room</span></h1>
+      <p className="hero-sub">Descubra como a internet e os bancos protegem as suas mensagens secretas. Uma experiência interativa ao vivo sobre a criptografia que move o mundo.</p>
+    </header>
+
+    <div className="papeis">
+      <button className="papel papel-host" onClick=${() => setModal(true)}>
+        <span className="papel-glifo">${V("d")}</span>
+        <span className="papel-nome">Anfitrião</span>
+        <span className="papel-apelido">O Guardião 🗝️</span>
+        <span className="papel-desc">Cria o cadeado público e guarda a única chave capaz de abrir as mensagens. Funciona como o painel central para decifrar tudo em tempo real.</span>
+        <span className="papel-cta">Criar sala →</span>
+      </button>
+      <button className="papel papel-part" onClick=${() => ir("participante")}>
+        <span className="papel-glifo">${V("e")}</span>
+        <span className="papel-nome">Participante</span>
+        <span className="papel-apelido">O Emissor 🔒</span>
+        <span className="papel-desc">Utiliza o cadeado público do anfitrião para trancar uma mensagem e enviá-la com segurança pela via pública de comunicação.</span>
+        <span className="papel-cta">Entrar com PIN →</span>
+      </button>
+      <button className="papel papel-hacker" onClick=${() => ir("hacker")}>
+        <span className="papel-glifo papel-emoji" aria-hidden="true">🕵️‍♂️</span>
+        <span className="papel-nome">Interceptador</span>
+        <span className="papel-apelido">O Hacker 🕵️‍♂️</span>
+        <span className="papel-desc">Captura as mensagens trancadas no meio do caminho e tenta adivinhar a chave por força bruta antes que o tempo acabe.</span>
+        <span className="papel-cta">Modo Hacker →</span>
+      </button>
+    </div>
+
+    <section className="solo" aria-labelledby="h-solo">
+      <div className="solo-texto">
+        <h2 id="h-solo">Está testando sozinho?</h2>
+        <p>Abra o Modo Simulação para controlar o Anfitrião, o Participante e o Hacker lado a lado na mesma tela.</p>
+      </div>
+      <div className="solo-trio" aria-hidden="true">
+        <span className="trio t-host">${V("d")}</span><span className="trio t-part">${V("e")}</span><span className="trio t-hacker">🕵️‍♂️</span>
+      </div>
+      <button className="btn btn-solo" onClick=${() => ir("ensaio")}>Experimentar Simulação Solo</button>
+    </section>
+
+    <details className="pratica">
+      <summary>Como funciona a segurança do RSA na prática?</summary>
+      <div className="pratica-corpo">
+        <p className="pratica-nota">Multiplicar dois números primos (61 × 53 = 3233) é instantâneo para um computador, mas descobrir quais dois primos geraram o número 3233 sem saber a resposta é extremamente difícil. Em chaves reais de 2048 bits, esta descoberta levaria bilhões de anos.</p>
+        <div className="pratica-passos">
+          <div className="pp"><span className="pp-rot">Ida: fácil</span><span className="pp-eq">61 × 53 = 3233</span><span className="passo-n">Uma multiplicação.</span></div>
+          <div className="pp pp-dificil"><span className="pp-rot">Volta: difícil</span><span className="pp-eq">3233 = ? × ?</span><span className="passo-n">Testar 3, 5, 7, 11… até achar o 53. Com 617 dígitos, a lista não acaba.</span></div>
+        </div>
+        <h3 className="pratica-sub">O exemplo completo</h3>
+        <div className="exemplo-linha">
+          <span>${V("p")} = 61</span><span>${V("q")} = 53</span>
+          <span>${V("n")} = ${ex.n.toString()}</span>
+          <span><${Phi} n=${ex.n} /> = ${ex.phi.toString()}</span>
+          <span className="pub-t">${V("e")} = ${ex.e.toString()}</span>
+          <span className="priv-t">${V("d")} = ${ex.d.toString()}</span>
+        </div>
+        <p className="passo-n">O cadeado público é (${V("e")}, ${V("n")}) = (17, 3233). A letra “A” (byte 65) é trancada como 65<sup>17</sup> mod 3233 = ${cA.toString()}. Só quem tem a chave ${V("d")} = 2753 abre: ${cA.toString()}<sup>2753</sup> mod 3233 = ${modPow(cA, 2753n, 3233n).toString()}, o “A” de volta.</p>
+      </div>
+    </details>
+    ${modal ? html`<${ModalGuardiao} nomeSalvo=${nomeSalvo} onCriar=${onCriar} onFechar=${() => setModal(false)} />` : null}
+  </div>`;
+}
+
+/* ============================================================
+   App + rotas por hash (#anfitriao, #participante, #ensaio, #entrar-123456)
+   ============================================================ */
+function lerHash() {
+  const h = (location.hash || "").replace(/^#/, "");
+  const m = /^entrar-(\d{6})$/.exec(h) || /^\/participante\?(?:.*&)?pin=(\d{6})/.exec(h);
+  if (m) return { tela: "participante", pin: m[1] };
+  const barra = /^\/(anfitriao|participante|ensaio|hacker)$/.exec(h);
+  if (barra) return { tela: barra[1] };
+  if (["anfitriao", "participante", "ensaio", "hacker"].includes(h)) return { tela: h };
+  return { tela: "inicio" };
+}
+
+/* Se algo falhar ao desenhar uma tela, mostra o erro em vez de uma página vazia. */
+class Guarda extends React.Component {
+  constructor(props) { super(props); this.state = { erro: null }; }
+  static getDerivedStateFromError(erro) { return { erro }; }
+  componentDidCatch(erro) { console.error(erro); }
+  render() {
+    if (!this.state.erro) return this.props.children;
+    return html`<div className="wrap estreito">
+      <div className="painel falha" role="alert">
+        <h2>Esta tela encontrou um erro</h2>
+        <p className="passo-n">Volte ao início e tente de novo. Se repetir, envie a mensagem abaixo para quem mantém o RSA Room.</p>
+        <pre>${String(this.state.erro && (this.state.erro.message || this.state.erro))}</pre>
+        <button className="btn" onClick=${() => { this.setState({ erro: null }); this.props.onSair(); }}>Voltar ao início</button>
+      </div>
+    </div>`;
+  }
+}
+
+function App() {
+  const [rota, setRota] = useState(lerHash);
+  const [nomeHost, setNomeHost] = useState(nomeLembrado);
+  useEffect(() => {
+    const f = () => setRota(lerHash());
+    window.addEventListener("hashchange", f);
+    return () => window.removeEventListener("hashchange", f);
+  }, []);
+  const ir = (tela) => {
+    const alvo = tela === "inicio" ? "" : tela;
+    if (location.hash.replace(/^#/, "") === alvo) setRota(lerHash());
+    else location.hash = alvo;
+    if (tela === "inicio" && !alvo) setRota({ tela: "inicio" });
+    window.scrollTo(0, 0);
+  };
+  const sair = () => ir("inicio");
+  let tela;
+  if (rota.tela === "anfitriao") tela = html`<${Anfitriao} nomeInicial=${nomeHost} onSair=${sair} />`;
+  else if (rota.tela === "participante") tela = html`<${Participante} key=${rota.pin || "sem-pin"} pinInicial=${rota.pin || ""} pinDoLink=${!!rota.pin} onSair=${sair} />`;
+  else if (rota.tela === "ensaio") tela = html`<${Ensaio} onSair=${sair} />`;
+  else if (rota.tela === "hacker") tela = html`<${Interceptador} onSair=${sair} />`;
+  else tela = html`<${Inicio} ir=${ir} nomeSalvo=${nomeHost} onCriar=${(n) => { setNomeHost(n); lembrarNome(n); ir("anfitriao"); }} />`;
+  return html`<${Guarda} key=${rota.tela} onSair=${sair}>${tela}<//>`;
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(html`<${App} />`);
+</script>
+
+</body></html>
